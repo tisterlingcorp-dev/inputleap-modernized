@@ -483,6 +483,10 @@ if(INPUTLEAP_BUILD_TESTS)
     set_tests_properties(environmentprofilesessiontests PROPERTIES
         LABELS "gui-models;environment-profiles"
         RESOURCE_LOCK inputleap_global_configuration_locks)
+    if(UNIX AND NOT APPLE)
+        set_tests_properties(environmentprofilesessiontests PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    endif()
     target_include_directories(environmentprofilesessiontests PUBLIC ../../ext src)
     target_link_libraries(environmentprofilesessiontests gtest gmock net arch base io common
         Qt6::Core Qt6::Widgets Qt6::Network Qt6::Test OpenSSL::SSL OpenSSL::Crypto ${libs})
