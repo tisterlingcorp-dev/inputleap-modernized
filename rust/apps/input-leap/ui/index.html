@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Input Leap</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, "Segoe UI", system-ui, sans-serif;
+        --bg: #08111f;
+        --panel: #111c2d;
+        --panel-soft: #17243a;
+        --line: #293b56;
+        --text: #ecf4ff;
+        --muted: #91a4bf;
+        --accent: #55d6be;
+        --accent-soft: rgba(85, 214, 190, 0.13);
+        --blue: #65a7ff;
+        --danger: #ff7b86;
+        --ok: #55d6be;
+        --warn: #ffd27a;
+        --bad: #ff7b86;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-width: 680px;
+        min-height: 100vh;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 15% -10%, rgba(56, 114, 190, 0.22), transparent 36%),
+          radial-gradient(circle at 90% 20%, rgba(48, 170, 151, 0.13), transparent 32%),
+          var(--bg);
+      }
+
+      button { font: inherit; }
+      .app { max-width: 1120px; margin: 0 auto; padding: 28px 32px 36px; }
+      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+      .brand { display: flex; align-items: center; gap: 14px; }
+      .brand-mark {
+        width: 42px; height: 42px; border-radius: 13px;
+        display: grid; place-items: center;
+        color: #06131d; font-weight: 900; font-size: 20px;
+        background: linear-gradient(135deg, var(--accent), #7db9ff);
+        box-shadow: 0 10px 28px rgba(85, 214, 190, 0.18);
+      }
+      h1 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
+      .subtitle { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+      .status-pill {
+        display: inline-flex; align-items: center; gap: 9px;
+        min-width: 132px; justify-content: center;
+        padding: 9px 13px; border: 1px solid var(--line); border-radius: 999px;
+        color: var(--muted); background: rgba(10, 19, 33, 0.72);
+        font-size: 12px; font-weight: 800; letter-spacing: .06em;
+      }
+      .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #72829a; }
+      .status-pill.connected { color: var(--accent); border-color: rgba(85,214,190,.35); background: var(--accent-soft); }
+      .status-pill.connected .status-dot { background: var(--accent); box-shadow: 0 0 0 5px rgba(85,214,190,.11); }
+      .status-pill.listening { color: #ffd27a; border-color: rgba(255,210,122,.35); }
+      .status-pill.listening .status-dot { background: #ffd27a; }
+      .status-pill.stopped, .status-pill.unknown { color: var(--danger); border-color: rgba(255,123,134,.35); }
+      .status-pill.stopped .status-dot, .status-pill.unknown .status-dot { background: var(--danger); }
+
+      .hero {
+        margin-top: 30px; padding: 25px;
+        border: 1px solid var(--line); border-radius: 20px;
+        background: linear-gradient(160deg, rgba(21,34,54,.96), rgba(11,21,36,.95));
+        box-shadow: 0 24px 70px rgba(0,0,0,.24);
+      }
+      .section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+      .eyebrow { margin: 0 0 7px; color: var(--accent); font-weight: 800; font-size: 11px; letter-spacing: .13em; text-transform: uppercase; }
+      h2 { margin: 0; font-size: 21px; letter-spacing: -.025em; }
+      .section-copy { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+      .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+      .shortcut-hint { flex-basis: 100%; color: var(--muted); font-size: 10px; text-align: right; }
+      .refresh {
+        padding: 9px 14px; border: 1px solid var(--line); border-radius: 10px;
+        color: var(--text); background: var(--panel-soft); cursor: pointer;
+      }
+      .refresh:hover { border-color: #456488; background: #1b2b44; }
+      .refresh:disabled { opacity: .5; cursor: wait; }
+      .runtime-action { border-color: rgba(85,214,190,.35); color: var(--accent); }
+      .runtime-stop { border-color: rgba(255,123,134,.35); color: #ffafb6; }
+
+      .topology {
+        min-height: 250px; margin-top: 24px; padding: 32px 24px;
+        display: flex; align-items: center; justify-content: center; gap: 18px;
+        border: 1px dashed #314762; border-radius: 16px;
+        background:
+          linear-gradient(rgba(84,111,146,.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(84,111,146,.05) 1px, transparent 1px),
+          rgba(5, 13, 25, .35);
+        background-size: 28px 28px;
+      }
+      .topology.connected { border-color: rgba(85,214,190,.42); box-shadow: inset 0 0 36px rgba(85,214,190,.05); }
+      .topology.connected .link-line { box-shadow: 0 0 12px rgba(85,214,190,.6); }
+      .topology.listening { border-color: rgba(255,210,122,.38); }
+      .topology.listening .link-line { background: linear-gradient(90deg, #77859c, #ffd27a); opacity: .8; }
+      .topology.stopped, .topology.unknown { border-color: rgba(255,123,134,.28); }
+      .topology.stopped .screen, .topology.unknown .screen { opacity: .72; }
+      .topology.stopped .link-line, .topology.unknown .link-line { background: #59677b; opacity: .55; }
+      .screen {
+        position: relative; width: auto; min-width: 0; max-width: 340px; min-height: 178px;
+        flex: 1 1 0;
+        padding: 18px; border: 1px solid #39506f; border-radius: 13px;
+        background: linear-gradient(145deg, #172640, #101b2d);
+        box-shadow: 0 14px 34px rgba(0,0,0,.24), inset 0 0 0 1px rgba(255,255,255,.02);
+      }
+      .screen.server { border-color: rgba(101,167,255,.55); }
+      .screen.client { border-color: rgba(85,214,190,.5); }
+      .screen::after {
+        content: ""; position: absolute; left: 35%; right: 35%; bottom: -9px; height: 8px;
+        border: 1px solid #39506f; border-top: 0; border-radius: 0 0 6px 6px; background: #152239;
+      }
+      .screen-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+      .os { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+      .role { padding: 5px 8px; border-radius: 999px; font-size: 10px; font-weight: 900; text-transform: uppercase; background: rgba(101,167,255,.12); color: var(--blue); }
+      .client .role { color: var(--accent); background: var(--accent-soft); }
+
+      .screen-name { margin-top: 22px; font-size: 22px; font-weight: 800; letter-spacing: -.025em; }
+      .screen-ip { margin-top: 5px; color: var(--muted); font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; }
+      .screen-state { margin-top: 20px; display: flex; align-items: center; gap: 8px; color: var(--accent); font-size: 12px; font-weight: 700; }
+      .mini-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+      .link { width: 72px; flex: 0 0 72px; display: grid; place-items: center; gap: 9px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+      .link-line { position: relative; width: 100%; height: 2px; background: linear-gradient(90deg, var(--blue), var(--accent)); }
+      .link-line::before, .link-line::after { content: ""; position: absolute; top: -3px; width: 8px; height: 8px; border: solid var(--accent); transform: rotate(45deg); }
+      .link-line::before { left: 0; border-width: 0 0 2px 2px; }
+      .link-line::after { right: 0; border-width: 2px 2px 0 0; }
+      .topology-editor { position: relative; width: 100%; min-height: 430px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background-color: rgba(9,18,31,.72); background-image: linear-gradient(rgba(111,139,174,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(111,139,174,.12) 1px, transparent 1px); background-size: 72px 72px; }
+      .topology-editor .screen { position: absolute; width: 245px; min-height: 178px; box-sizing: border-box; cursor: grab; user-select: none; transition: box-shadow .12s ease; }
+      .topology-editor .screen:active, .topology-editor .screen.dragging { cursor: grabbing; z-index: 5; }
+      .topology-editor .screen.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(85,214,190,.25); }
+      .topology-trash { position: absolute; right: 16px; bottom: 14px; z-index: 10; width: 74px; height: 58px; display: grid; place-items: center; border: 1px dashed rgba(255,123,134,.65); border-radius: 10px; color: #ffafb6; background: rgba(90,30,46,.55); font-size: 11px; font-weight: 800; text-align: center; opacity: .9; }
+      .topology-trash.drag-over { border-style: solid; background: rgba(150,40,60,.8); box-shadow: 0 0 0 3px rgba(255,123,134,.2); }
+      .layout-editor-panel { margin-top: 24px; }
+      .layout-editor-panel .topology { margin-top: 0; }
+      .layout-editor-panel.is-collapsed .topology,
+      .layout-editor-panel.is-collapsed .editor-controls,
+      .layout-editor-panel.is-collapsed .topology-footer { display: none; }
+      .editor-toolbar { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+      .layout-editor-panel.is-collapsed .editor-toolbar { margin-top: 0; }
+      .editor-note { color: var(--muted); font-size: 11px; }
+      .editor-dirty { color: var(--warn); font-size: 11px; font-weight: 700; }
+      .machine-config { margin-top: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(9,18,31,.58); }
+      .settings-panel { display: none; }
+      .settings-panel.settings-open { display: block; }
+      .settings-panel > .machine-config { margin-top: 0; }
+      .machine-config-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+      .machine-config-title { margin: 0; font-size: 14px; font-weight: 800; }
+      .machine-config-copy { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+      .machine-config-mode { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+      .machine-config-mode label { display: inline-flex; align-items: center; gap: 7px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); font-size: 12px; cursor: pointer; }
+      .machine-config-mode label:has(input:checked) { border-color: rgba(85,214,190,.55); color: var(--text); background: var(--accent-soft); }
+      .machine-config-fields { display: grid; grid-template-columns: 1fr 1fr 130px; gap: 10px; margin-top: 12px; }
+      .machine-config-field { display: grid; gap: 5px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+      .machine-config-field input { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--panel); font: inherit; font-size: 12px; }
+      .machine-config-field input:focus { outline: 2px solid rgba(85,214,190,.3); border-color: var(--accent); }
+      .machine-config-pending { margin-top: 10px; color: var(--warn); font-size: 11px; font-weight: 700; }
+      .machine-config-pending.ok { color: var(--accent); }
+
+      .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+      .metric { padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(15,27,45,.72); }
+      .metric-label { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+      .metric-value { margin-top: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 700; }
+      .topology-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 13px; color: var(--muted); font-size: 11px; }
+      .legend { display: flex; flex-wrap: wrap; gap: 12px; }
+      .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+      .legend-dot { width: 7px; height: 7px; border-radius: 50%; background: #59677b; }
+      .legend-dot.connected { background: var(--ok); box-shadow: 0 0 8px rgba(85,214,190,.55); }
+      .legend-dot.listening { background: var(--warn); }
+      .legend-dot.stopped { background: var(--bad); }
+      .auto-refresh { white-space: nowrap; }
+
+      details { margin-top: 16px; border: 1px solid var(--line); border-radius: 13px; background: rgba(13,24,40,.7); }
+      summary { padding: 14px 16px; cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 700; }
+      .details-body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; padding: 0 16px 16px; }
+      .detail { color: var(--muted); font-size: 12px; }
+      .detail strong { display: block; margin-top: 3px; color: var(--text); font-weight: 600; word-break: break-all; }
+      .error { display: none; margin-top: 14px; padding: 11px 13px; border: 1px solid rgba(255,123,134,.35); border-radius: 10px; color: #ffafb6; background: rgba(255,123,134,.08); font-size: 12px; }
+      .logs-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+      .logs-controls { display: grid; grid-template-columns: minmax(180px, 1fr) 120px 160px auto; gap: 8px; margin-top: 12px; }
+      .logs-controls input, .logs-controls select { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: #0b1728; }
+      .logs-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .log-chip { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: rgba(15,27,45,.72); font-size: 11px; }
+      .log-chip strong { color: var(--text); }
+      .logs-panel { display: none; margin-top: 10px; max-height: 430px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #07101c; }
+      .logs-panel.logs-open { display: block; }
+      .log-row { display: grid; grid-template-columns: 90px 72px 112px minmax(0, 1fr); gap: 10px; padding: 9px 12px; border-bottom: 1px solid rgba(57,80,111,.35); font: 11px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+      .log-row:hover { background: rgba(40,67,101,.25); }
+      .log-time, .log-source { color: var(--muted); }
+      .log-level { font-weight: 800; }
+      .log-level.ERROR { color: #ff7b86; }
+      .log-level.WARN { color: #ffd27a; }
+      .log-level.SUCCESS { color: var(--accent); }
+      .log-message { min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+      .logs-empty { padding: 18px; color: var(--muted); }
+      @media (max-width: 780px) { .logs-controls { grid-template-columns: 1fr 1fr; } .log-row { grid-template-columns: 78px 65px 90px minmax(0, 1fr); gap: 6px; } }
+
+      @media (max-width: 780px) {
+        body { min-width: 540px; }
+        .app { padding: 22px; }
+        .topology { gap: 10px; padding-inline: 14px; }
+        .link { width: 55px; }
+        .meta-grid { grid-template-columns: 1fr 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">IL</div>
+          <div>
+            <h1>Input Leap</h1>
+            <p class="subtitle">Interface Rust/Tauri · motor de compartilhamento preservado</p>
+          </div>
+        </div>
+        <div id="status-pill" class="status-pill" role="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="runtime-status">VERIFICANDO</span>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Mapa de telas</p>
+            <h2>Computadores conectados</h2>
+            <p class="section-copy">Organize suas máquinas e escolha a posição de cada tela.</p>
+          </div>
+          <div class="actions">
+            <button id="runtime-toggle" class="refresh runtime-action" type="button" aria-label="Recarregar runtime C++">Recarregar runtime</button>
+            <button id="refresh" class="refresh" type="button" aria-label="Atualizar estado da conexão">Atualizar</button>
+            <button id="toggle-settings" class="refresh" type="button" aria-expanded="false">Configurações</button>
+            <span class="shortcut-hint" role="note">Atalhos: R atualiza · L recarrega</span>
+          </div>
+        </div>
+
+        <section id="settings-config" class="settings-panel" aria-label="Configurações da máquina">
+        <section class="machine-config" aria-labelledby="machine-config-title">
+          <div class="machine-config-head">
+            <div>
+              <h3 id="machine-config-title" class="machine-config-title">Papel desta máquina</h3>
+              <p class="machine-config-copy">Como no InputLeap antigo: escolha quem compartilha e quem conecta.</p>
+            </div>
+          </div>
+          <div class="machine-config-mode" role="radiogroup" aria-label="Papel desta máquina">
+            <label><input type="radio" name="machine-mode" value="auto" checked> Automático / detectado</label>
+            <label><input type="radio" name="machine-mode" value="server"> Servidor · compartilhar teclado e mouse</label>
+            <label><input type="radio" name="machine-mode" value="client"> Cliente · conectar ao servidor</label>
+          </div>
+          <div class="machine-config-fields">
+            <label class="machine-config-field">Nome da tela<input id="machine-screen-name" type="text" placeholder="Detectado pelo runtime"></label>
+            <label class="machine-config-field" id="machine-address-field">Endereço do servidor<input id="machine-server-address" type="text" placeholder="Ex.: 192.0.2.10"></label>
+            <label class="machine-config-field">Porta<input id="machine-port" type="number" min="1" max="65535" value="24800"></label>
+          </div>
+          <div id="machine-config-pending" class="machine-config-pending">Automático: aguardando confirmação pelo runtime.</div>
+        </section>
+        </section>
+
+        <section id="layout-editor-panel" class="layout-editor-panel is-collapsed" aria-label="Editor do layout">
+          <div id="topology" class="topology"><div id="topology-editor" class="topology-editor" aria-label="Área livre do mapa de telas"></div></div>
+          <div class="editor-toolbar">
+            <button id="toggle-layout-editor" class="refresh runtime-action" type="button" aria-expanded="false">Editar layout</button>
+            <div class="editor-controls">
+              <button id="add-machine" class="refresh" type="button">Adicionar máquina</button>
+              <button id="save-layout" class="refresh runtime-action" type="button" disabled>Persistir layout</button>
+              <span class="editor-note">Arraste as telas e persista pelo daemon com geração, rollback e confirmação.</span>
+              <span id="editor-dirty" class="editor-dirty" hidden>Alterações locais não salvas</span>
+            </div>
+          </div>
+          <div class="topology-footer" aria-label="Legenda do mapa de telas">
+            <div class="legend">
+              <span class="legend-item"><span class="legend-dot connected"></span>Conectado</span>
+              <span class="legend-item"><span class="legend-dot listening"></span>Aguardando cliente</span>
+              <span class="legend-item"><span class="legend-dot stopped"></span>Parado</span>
+            </div>
+            <span class="auto-refresh">Atualização automática · 2,5 s</span>
+          </div>
+        </section>
+
+        <section id="settings-technical" class="settings-panel" aria-label="Informações técnicas">
+        <div class="meta-grid">
+          <div class="metric"><div class="metric-label">Runtime</div><div id="runtime" class="metric-value">—</div></div>
+          <div class="metric"><div class="metric-label">PID</div><div id="runtime-pid" class="metric-value">—</div></div>
+          <div class="metric"><div class="metric-label">Porta</div><div id="runtime-port" class="metric-value">24800</div></div>
+          <div class="metric"><div class="metric-label">Atualizado</div><div id="updated-at" class="metric-value">—</div></div>
+        </div>
+
+        <div id="runtime-error" class="error"></div>
+
+        <div class="logs-toolbar">
+          <span class="section-copy">Diagnóstico do runtime C++: processo, porta, TLS/mTLS e cliente.</span>
+          <button id="toggle-logs" class="refresh" type="button" aria-expanded="false">Abrir central de logs</button>
+        </div>
+        <div id="logs-summary" class="logs-summary" hidden></div>
+        <div id="logs-controls" class="logs-controls" hidden>
+          <input id="logs-search" type="search" placeholder="Buscar em mensagens..." aria-label="Buscar logs">
+          <select id="logs-level" aria-label="Filtrar severidade"><option value="ALL">Todas severidades</option><option value="ERROR">Erros</option><option value="WARN">Avisos</option><option value="SUCCESS">Sucesso</option><option value="INFO">Informação</option></select>
+          <select id="logs-source" aria-label="Filtrar origem"><option value="ALL">Todas as origens</option></select>
+          <label class="log-chip"><input id="logs-autoscroll" type="checkbox" checked> Auto-scroll</label>
+        </div>
+        <div id="runtime-logs" class="logs-panel" aria-live="polite"><div class="logs-empty">Abra a central para carregar os logs reais.</div></div>
+
+        <details>
+          <summary>Detalhes da ponte de migração</summary>
+          <div class="details-body">
+            <div class="detail">Configuração ativa<strong id="config-path">—</strong></div>
+            <div class="detail">Agente Rust<strong id="agent-status">—</strong></div>
+            <div class="detail">Versão do agente<strong id="agent-version">—</strong></div>
+            <div class="detail">Fonte do agente<strong id="agent-source">—</strong></div>
+            <div class="detail">Estado autoritativo<strong id="daemon-runtime-status">—</strong></div>
+            <div class="detail">Fonte do runtime<strong id="daemon-runtime-source">—</strong></div>
+          </div>
+        </details>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const byId = (id) => document.getElementById(id);
+      const invokeAvailable = () => window.__TAURI__?.core?.invoke;
+      const runtimeStates = new Set(['CONNECTED', 'LISTENING', 'STOPPED', 'UNKNOWN']);
+      let refreshTimer;
+      let refreshInFlight = false;
+      let refreshPromise = null;
+      let runtimeActionInFlight = false;
+      let runtimeActionEpoch = 0;
+      let logsTimer;
+      let logsInFlight = false;
+      let machineConfig = { mode: 'auto', screenName: '', serverAddress: '', port: 24800 };
+
+      const setText = (id, value, fallback = '—') => {
+        const element = byId(id);
+        if (element) element.textContent = value == null || value === '' ? fallback : String(value);
+      };
+
+      const updateMachineConfigForm = (topology = {}) => {
+        const localScreen = (topology.screens || []).find((screen) => screen.role === 'local')?.name
+          || topology.client_screen || topology.server_screen || '';
+        if (!machineConfig.screenName) machineConfig.screenName = localScreen;
+        if (!machineConfig.serverAddress && topology.server_ip) machineConfig.serverAddress = topology.server_ip;
+        if (!machineConfig.port) machineConfig.port = topology.port || 24800;
+        document.querySelectorAll('input[name="machine-mode"]').forEach((input) => { input.checked = input.value === machineConfig.mode; });
+        byId('machine-screen-name').value = machineConfig.screenName || '';
+        byId('machine-server-address').value = machineConfig.serverAddress || '';
+        byId('machine-port').value = machineConfig.port || 24800;
+        const serverMode = machineConfig.mode === 'server';
+        byId('machine-address-field').querySelector('input').placeholder = serverMode ? 'IP local detectado' : 'Ex.: 192.0.2.10';
+        const pending = byId('machine-config-pending');
+        const valid = machineConfig.mode === 'auto'
+          ? Boolean(topology.server_screen)
+          : Boolean(machineConfig.screenName && (serverMode || machineConfig.serverAddress));
+        pending.textContent = valid
+          ? (serverMode ? `Servidor definido · porta ${machineConfig.port}` : machineConfig.mode === 'client' ? `Cliente definido · servidor ${machineConfig.serverAddress}:${machineConfig.port}` : 'Automático: papel detectado pelo runtime.')
+          : (serverMode ? 'Pendente: informe o nome da tela e o endereço local do servidor.' : 'Pendente: informe o nome da tela e o endereço do servidor.');
+        pending.classList.toggle('ok', valid);
+      };
+
+      const setStatus = (status) => {
+        const normalized = runtimeStates.has(status) ? status : 'UNKNOWN';
+        const pill = byId('status-pill');
+        const topology = byId('topology');
+        const runtimeButton = byId('runtime-toggle');
+        for (const state of runtimeStates) {
+          pill.classList.toggle(state.toLowerCase(), normalized === state);
+          topology.classList.toggle(state.toLowerCase(), normalized === state);
+        }
+        runtimeButton.disabled = normalized === 'UNKNOWN';
+        runtimeButton.classList.remove('runtime-stop');
+        runtimeButton.classList.add('runtime-action');
+        runtimeButton.textContent = 'Recarregar runtime';
+        runtimeButton.setAttribute('aria-label', 'Recarregar runtime C++');
+        setText('runtime-status', normalized);
+
+        const clientState = {
+          CONNECTED: 'Conectado e recebendo entrada',
+          LISTENING: 'Motor aguardando cliente',
+          STOPPED: 'Motor sem listener',
+          UNKNOWN: 'Estado indisponível'
+        };
+        setText('client-state', clientState[normalized]);
+      };
+
+      let editorScreens = [];
+      let draggedScreen = null;
+      let editorDirty = false;
+      let editorRevision = 0;
+      let topologySaveAuthorized = false;
+
+      const updateSaveLayoutState = () => {
+        const button = byId('save-layout');
+        button.disabled = runtimeActionInFlight || !editorDirty || !topologySaveAuthorized;
+        button.textContent = runtimeActionInFlight ? 'Aplicando…' : 'Persistir layout';
+      };
+
+      const markEditorDirty = () => {
+        editorRevision += 1;
+        editorDirty = true;
+        byId('editor-dirty').hidden = false;
+        updateSaveLayoutState();
+      };
+
+      const buildTopologyPayload = (screens) => {
+        if (!Array.isArray(screens) || !screens.length) throw new Error('O layout precisa de ao menos uma tela.');
+        const names = new Set();
+        for (const screen of screens) {
+          if (!/^[A-Za-z0-9._-]{1,255}$/.test(screen.name || '')) throw new Error(`Nome de tela inválido: ${screen.name || 'vazio'}.`);
+          if (names.has(screen.name)) throw new Error(`Nome de tela duplicado: ${screen.name}.`);
+          names.add(screen.name);
+        }
+        const primary = screens.find((screen) => screen.role === 'server');
+        if (!primary) throw new Error('O layout precisa identificar a tela servidora.');
+        const directions = new Map();
+        const reverse = { left: 'right', right: 'left', up: 'down', down: 'up' };
+        for (const screen of screens.filter((item) => item !== primary)) {
+          const dx = (screen.x ?? 0) - (primary.x ?? 0);
+          const dy = (screen.y ?? 0) - (primary.y ?? 0);
+          const direction = Math.abs(dx) >= Math.abs(dy)
+            ? (dx < 0 ? 'left' : 'right')
+            : (dy < 0 ? 'up' : 'down');
+          if (directions.has(direction)) throw new Error(`Há mais de uma tela na direção ${direction} do servidor.`);
+          directions.set(direction, screen);
+        }
+        const lines = ['section: screens'];
+        screens.forEach((screen) => lines.push(`\t${screen.name}:`));
+        lines.push('end', '', 'section: links', `\t${primary.name}:`);
+        directions.forEach((screen, direction) => lines.push(`\t\t${direction} = ${screen.name}`));
+        directions.forEach((screen, direction) => {
+          lines.push(`\t${screen.name}:`, `\t\t${reverse[direction]} = ${primary.name}`);
+        });
+        lines.push('end', '');
+        return lines.join('\n');
+      };
+
+      const screenCard = (screen, index) => {
+        const card = document.createElement('article');
+        card.className = `screen ${screen.role === 'server' ? 'server' : 'client'}`;
+        card.dataset.screen = screen.name;
+        if (!Number.isFinite(screen.x)) screen.x = 36 + (index % 3) * 270;
+        if (!Number.isFinite(screen.y)) screen.y = 36 + Math.floor(index / 3) * 220;
+        card.style.left = `${screen.x}px`;
+        card.style.top = `${screen.y}px`;
+        card.innerHTML = `<div class="screen-top"><span class="os">${screen.role === 'server' ? 'Windows' : 'Linux'}</span><span class="role">${screen.role === 'server' ? 'Servidor' : 'Cliente'}</span></div><div class="screen-name"></div><div class="screen-ip">${screen.address || 'Endereço não informado'}</div><div class="screen-state"><span class="mini-dot"></span>${screen.role === 'server' ? 'Servidor local' : 'Cliente disponível'}</div>`;
+        card.querySelector('.screen-name').textContent = screen.name;
+
+        card.addEventListener('pointerdown', (event) => {
+          if (event.target.closest('button')) return;
+          const editor = byId('topology-editor');
+          const bounds = editor.getBoundingClientRect();
+          const startX = event.clientX - bounds.left - (screen.x ?? 0);
+          const startY = event.clientY - bounds.top - (screen.y ?? 0);
+          draggedScreen = screen.name;
+          card.classList.add('dragging');
+          card.setPointerCapture(event.pointerId);
+          const move = (moveEvent) => {
+            const x = Math.max(8, Math.min(bounds.width - card.offsetWidth - 8, moveEvent.clientX - bounds.left - startX));
+            const y = Math.max(8, Math.min(bounds.height - card.offsetHeight - 8, moveEvent.clientY - bounds.top - startY));
+            screen.x = x;
+            screen.y = y;
+            card.style.left = `${x}px`;
+            card.style.top = `${y}px`;
+            const trash = byId('topology-trash');
+            trash.classList.toggle('drag-over', moveEvent.clientX >= trash.getBoundingClientRect().left && moveEvent.clientX <= trash.getBoundingClientRect().right && moveEvent.clientY >= trash.getBoundingClientRect().top && moveEvent.clientY <= trash.getBoundingClientRect().bottom);
+          };
+          const stop = (stopEvent) => {
+            card.releasePointerCapture?.(stopEvent.pointerId);
+            card.removeEventListener('pointermove', move);
+            card.removeEventListener('pointerup', stop);
+            card.removeEventListener('pointercancel', stop);
+            card.classList.remove('dragging');
+            const trash = byId('topology-trash');
+            const trashBounds = trash.getBoundingClientRect();
+            const inTrash = stopEvent.clientX >= trashBounds.left && stopEvent.clientX <= trashBounds.right && stopEvent.clientY >= trashBounds.top && stopEvent.clientY <= trashBounds.bottom;
+            trash.classList.remove('drag-over');
+            draggedScreen = null;
+            if (inTrash && editorScreens.length > 1) {
+              editorScreens = editorScreens.filter((item) => item.name !== screen.name);
+              markEditorDirty();
+              renderEditor();
+            } else {
+              markEditorDirty();
+            }
+          };
+          card.addEventListener('pointermove', move);
+          card.addEventListener('pointerup', stop);
+          card.addEventListener('pointercancel', stop);
+        });
+        return card;
+      };
+
+      const renderEditor = () => {
+        const editor = byId('topology-editor');
+        editor.replaceChildren();
+        const trash = document.createElement('div');
+        trash.id = 'topology-trash';
+        trash.className = 'topology-trash';
+        trash.textContent = 'Lixeira';
+        editor.appendChild(trash);
+        editorScreens.forEach((screen, index) => {
+          editor.appendChild(screenCard(screen, index));
+        });
+      };
+
+      const seedScreenPositions = (screens, links) => {
+        const positioned = screens.map((screen, index) => ({ ...screen, x: screen.x, y: screen.y }));
+        if (positioned.some((screen) => Number.isFinite(screen.x) && Number.isFinite(screen.y))) return positioned;
+        positioned.forEach((screen, index) => { screen.x = 42 + (index % 3) * 270; screen.y = 42 + Math.floor(index / 3) * 220; });
+        const byName = new Map(positioned.map((screen) => [screen.name, screen]));
+        const origin = positioned[0];
+        if (!origin) return positioned;
+        origin.x = 42; origin.y = 150;
+        (links || []).forEach((link) => {
+          const from = byName.get(link.from);
+          const to = byName.get(link.to);
+          if (!from || !to) return;
+          if (link.position === 'right') { to.x = from.x + 270; to.y = from.y; }
+          if (link.position === 'left') { to.x = from.x - 270; to.y = from.y; }
+          if (link.position === 'above' || link.position === 'up') { to.x = from.x; to.y = from.y - 220; }
+          if (link.position === 'below' || link.position === 'down') { to.x = from.x; to.y = from.y + 220; }
+        });
+        return positioned;
+      };
+
+      const renderTopology = (topology) => {
+        setStatus(topology.status);
+        updateMachineConfigForm(topology);
+        if (!editorDirty) {
+          const serverName = topology.server_screen;
+          const clientName = topology.client_screen;
+          const screens = (topology.screens || []).map((screen) => ({
+            ...screen,
+            role: screen.name === serverName ? 'server' : screen.name === clientName ? 'client' : screen.role,
+            address: screen.name === serverName ? topology.server_ip : screen.name === clientName ? topology.client_ip : screen.address
+          }));
+          editorScreens = seedScreenPositions(screens, topology.links || []);
+          if (!editorScreens.length && serverName) {
+            editorScreens = [
+              { name: serverName, role: 'server', address: topology.server_ip },
+              ...(clientName ? [{ name: clientName, role: 'client', address: topology.client_ip }] : [])
+            ];
+          }
+          renderEditor();
+        }
+        setText('runtime', topology.runtime === 'cpp_sidecar' ? 'C++ sidecar' : topology.runtime);
+        setText('runtime-pid', topology.pid);
+        setText('runtime-port', topology.port);
+        setText('config-path', topology.config_path);
+        setText('updated-at', new Date().toLocaleTimeString('pt-BR'));
+        const error = byId('runtime-error');
+        error.style.display = topology.error ? 'block' : 'none';
+        error.textContent = topology.error?.startsWith('runtime layout not found:') && topology.status === 'CONNECTED'
+          ? 'Conexão ativa. O layout visual ainda não foi carregado.'
+          : (topology.error || '');
+      };
+
+      const renderUnavailable = (message) => {
+        setStatus('UNKNOWN');
+        topologySaveAuthorized = false;
+        updateSaveLayoutState();
+        byId('runtime-toggle').disabled = true;
+        for (const id of [
+          'server-name', 'client-name', 'server-ip', 'client-ip', 'runtime', 'runtime-pid',
+          'config-path', 'agent-status', 'agent-version', 'agent-source',
+          'daemon-runtime-status', 'daemon-runtime-source'
+        ]) {
+          setText(id, null);
+        }
+        setText('runtime-port', 24800);
+        setText('updated-at', new Date().toLocaleTimeString('pt-BR'));
+        renderEditor();
+        document.title = 'Input Leap · UNKNOWN';
+
+        const error = byId('runtime-error');
+        error.style.display = 'block';
+        error.textContent = String(message);
+      };
+
+      const refresh = () => {
+        if (refreshPromise) return refreshPromise;
+        const invoke = invokeAvailable();
+        if (!invoke) {
+          renderUnavailable('A interface web não encontrou a bridge do runtime Tauri.');
+          return Promise.resolve();
+        }
+
+        const refreshStartedWithoutRuntimeAction = !runtimeActionInFlight;
+        const refreshActionEpoch = runtimeActionEpoch;
+        refreshInFlight = true;
+        byId('refresh').disabled = true;
+        byId('topology').setAttribute('aria-busy', 'true');
+        refreshPromise = (async () => {
+          try {
+            const [topology, agent, runtimeStatus] = await Promise.all([
+              invoke('get_runtime_topology'),
+              invoke('get_status'),
+              invoke('get_runtime_status')
+            ]);
+            const refreshCanAuthorizeRuntimeAction = refreshStartedWithoutRuntimeAction
+              && !runtimeActionInFlight
+              && refreshActionEpoch === runtimeActionEpoch;
+            if (!refreshCanAuthorizeRuntimeAction) return;
+            renderTopology(topology);
+            setText('agent-status', agent.status);
+            setText('agent-version', agent.version);
+            setText('agent-source', agent.source);
+            setText('daemon-runtime-status', runtimeStatus.state);
+            setText('daemon-runtime-source', runtimeStatus.source);
+            byId('runtime-toggle').disabled = !(runtimeStatus.state === 'RUNNING' && runtimeStatus.has_applied_generation);
+            topologySaveAuthorized = runtimeStatus.state === 'RUNNING' && runtimeStatus.has_applied_generation;
+            updateSaveLayoutState();
+            document.title = `Input Leap · ${runtimeStates.has(topology.status) ? topology.status : 'UNKNOWN'}`;
+          } catch (error) {
+            renderUnavailable(`Falha ao consultar runtime: ${error?.toString?.() || error}`);
+          } finally {
+            refreshInFlight = false;
+            refreshPromise = null;
+            byId('refresh').disabled = false;
+            byId('topology').setAttribute('aria-busy', 'false');
+          }
+        })();
+        return refreshPromise;
+      };
+
+      byId('refresh').addEventListener('click', refresh);
+      byId('toggle-layout-editor').addEventListener('click', (event) => {
+        const panel = byId('layout-editor-panel');
+        const expanded = panel.classList.toggle('is-collapsed') === false;
+        event.currentTarget.setAttribute('aria-expanded', String(expanded));
+        event.currentTarget.textContent = expanded ? 'Ocultar layout' : 'Editar layout';
+      });
+      document.querySelectorAll('input[name="machine-mode"]').forEach((input) => input.addEventListener('change', (event) => {
+        machineConfig.mode = event.target.value;
+        updateMachineConfigForm();
+      }));
+      byId('machine-screen-name').addEventListener('input', (event) => {
+        machineConfig.screenName = event.target.value.trim();
+        updateMachineConfigForm();
+      });
+      byId('machine-server-address').addEventListener('input', (event) => {
+        machineConfig.serverAddress = event.target.value.trim();
+        updateMachineConfigForm();
+      });
+      byId('machine-port').addEventListener('input', (event) => {
+        machineConfig.port = Number(event.target.value) || 24800;
+        updateMachineConfigForm();
+      });
+      byId('add-machine').addEventListener('click', () => {
+        const name = window.prompt('Nome da máquina:');
+        if (!name?.trim() || editorScreens.some((screen) => screen.name === name.trim())) return;
+        editorScreens.push({ name: name.trim(), role: 'client', address: '' });
+        markEditorDirty();
+        renderEditor();
+      });
+      byId('save-layout').addEventListener('click', async () => {
+        const invoke = invokeAvailable();
+        if (!invoke || runtimeActionInFlight || !topologySaveAuthorized || !editorDirty) return;
+        let payload;
+        try {
+          payload = buildTopologyPayload(editorScreens);
+        } catch (error) {
+          const target = byId('runtime-error');
+          target.style.display = 'block';
+          target.textContent = error?.toString?.() || String(error);
+          return;
+        }
+        const saveRevision = editorRevision;
+        runtimeActionEpoch += 1;
+        runtimeActionInFlight = true;
+        updateSaveLayoutState();
+        try {
+          await invoke('apply_topology', { payload });
+          if (editorRevision === saveRevision) {
+            editorDirty = false;
+            byId('editor-dirty').hidden = true;
+          }
+          runtimeActionInFlight = false;
+          if (refreshPromise) await refreshPromise;
+          await refresh();
+        } catch (error) {
+          runtimeActionInFlight = false;
+          const target = byId('runtime-error');
+          target.style.display = 'block';
+          target.textContent = `Falha ao persistir layout: ${error?.toString?.() || error}`;
+        } finally {
+          updateSaveLayoutState();
+        }
+      });
+
+      const runRuntimeAction = async (command, button) => {
+        const invoke = invokeAvailable();
+        if (!invoke || runtimeActionInFlight) return;
+        runtimeActionEpoch += 1;
+        runtimeActionInFlight = true;
+        button.disabled = true;
+        try {
+          await invoke(command);
+          runtimeActionInFlight = false;
+          if (refreshPromise) await refreshPromise;
+          await refresh();
+        } catch (error) {
+          runtimeActionInFlight = false;
+          renderUnavailable(`Falha ao executar ação do runtime: ${error?.toString?.() || error}`);
+        }
+      };
+      let latestLogEntries = [];
+      const renderLogs = () => {
+        const panel = byId('runtime-logs');
+        const query = byId('logs-search').value.trim().toLowerCase();
+        const level = byId('logs-level').value;
+        const source = byId('logs-source').value;
+        const filtered = latestLogEntries.filter((entry) => (level === 'ALL' || entry.level === level) && (source === 'ALL' || entry.source === source) && (!query || `${entry.message} ${entry.source}`.toLowerCase().includes(query)));
+        panel.replaceChildren();
+        if (!filtered.length) { panel.innerHTML = '<div class="logs-empty">Nenhum evento corresponde aos filtros.</div>'; return; }
+        filtered.forEach((entry) => {
+          const row = document.createElement('div'); row.className = 'log-row';
+          row.innerHTML = '<span class="log-time"></span><span class="log-level"></span><span class="log-source"></span><span class="log-message"></span>';
+          row.querySelector('.log-time').textContent = entry.timestamp || '—';
+          row.querySelector('.log-level').textContent = entry.level || 'INFO'; row.querySelector('.log-level').classList.add(entry.level || 'INFO');
+          row.querySelector('.log-source').textContent = entry.source || 'runtime'; row.querySelector('.log-message').textContent = entry.message || '';
+          panel.appendChild(row);
+        });
+        if (byId('logs-autoscroll').checked) panel.scrollTop = panel.scrollHeight;
+      };
+      const refreshLogs = async () => {
+        if (logsInFlight || !byId('runtime-logs').classList.contains('logs-open')) return;
+        const invoke = invokeAvailable();
+        if (!invoke) return;
+        logsInFlight = true;
+        try {
+          const payload = await invoke('get_sanitized_logs');
+          latestLogEntries = Array.isArray(payload?.entries) ? payload.entries : [];
+          const sourceSelect = byId('logs-source'); const selected = sourceSelect.value;
+          const sources = [...new Set(latestLogEntries.map((entry) => entry.source).filter(Boolean))];
+          sourceSelect.replaceChildren(new Option('Todas as origens', 'ALL')); sources.forEach((source) => sourceSelect.appendChild(new Option(source, source))); sourceSelect.value = sources.includes(selected) ? selected : 'ALL';
+          const counts = latestLogEntries.reduce((result, entry) => { result[entry.level] = (result[entry.level] || 0) + 1; return result; }, {});
+          byId('logs-summary').innerHTML = `<span class="log-chip">Runtime <strong>${payload?.runtime_status || 'UNKNOWN'}</strong></span><span class="log-chip">Porta <strong>${payload?.port || '—'}</strong></span><span class="log-chip">PID <strong>${payload?.pid || '—'}</strong></span><span class="log-chip">Eventos <strong>${latestLogEntries.length}</strong></span><span class="log-chip">Erros <strong>${counts.ERROR || 0}</strong></span><span class="log-chip">Avisos <strong>${counts.WARN || 0}</strong></span>`;
+          renderLogs();
+        } catch (error) {
+          byId('runtime-logs').textContent = `Falha ao consultar logs: ${error?.toString?.() || error}`;
+        } finally {
+          logsInFlight = false;
+        }
+      };
+      byId('runtime-toggle').addEventListener('click', (event) => {
+        runRuntimeAction('reload_runtime', event.currentTarget);
+      });
+      byId('toggle-settings').addEventListener('click', (event) => {
+        const open = event.currentTarget.getAttribute('aria-expanded') !== 'true';
+        document.querySelectorAll('.settings-panel').forEach((panel) => panel.classList.toggle('settings-open', open));
+        event.currentTarget.setAttribute('aria-expanded', String(open));
+        event.currentTarget.textContent = open ? 'Fechar configurações' : 'Configurações';
+      });
+      byId('toggle-logs').addEventListener('click', (event) => {
+        const panel = byId('runtime-logs');
+        const open = !panel.classList.contains('logs-open');
+        panel.classList.toggle('logs-open', open);
+        event.currentTarget.setAttribute('aria-expanded', String(open));
+        event.currentTarget.textContent = open ? 'Fechar central de logs' : 'Abrir central de logs';
+        byId('logs-controls').hidden = !open;
+        byId('logs-summary').hidden = !open;
+        if (open) {
+          refreshLogs();
+          logsTimer = window.setInterval(refreshLogs, 1000);
+        } else if (logsTimer) {
+          window.clearInterval(logsTimer);
+          logsTimer = undefined;
+        }
+      });
+      ['logs-search', 'logs-level', 'logs-source'].forEach((id) => byId(id).addEventListener('input', renderLogs));
+      window.addEventListener('keydown', (event) => {
+        if (event.ctrlKey || event.altKey || event.metaKey || event.target?.matches?.('input, textarea, select')) return;
+        const key = event.key.toLowerCase();
+        if (key === 'r') refresh();
+        if (key === 'l' && !byId('runtime-toggle').disabled) byId('runtime-toggle').click();
+      });
+      refresh();
+      refreshTimer = window.setInterval(refresh, 2500);
+      window.addEventListener('beforeunload', () => {
+        window.clearInterval(refreshTimer);
+        if (logsTimer) window.clearInterval(logsTimer);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,54 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: C/C++ analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: c-cpp
+          queries: security-extended
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build cmake pkg-config \
+            libavahi-compat-libdnssd-dev libssl-dev \
+            libice-dev libsm-dev libpng-dev \
+            libx11-dev libxext-dev libxi-dev libxinerama-dev \
+            libxrandr-dev libxrender-dev libxtst-dev libxkbcommon-dev \
+            qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+
+      - name: Configure
+        run: cmake --preset debug-tests
+
+      - name: Build
+        run: cmake --build --preset debug-tests --parallel
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:c-cpp

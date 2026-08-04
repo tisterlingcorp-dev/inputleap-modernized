@@ -1,0 +1,274 @@
+if(NOT DEFINED EMITTER OR EMITTER STREQUAL "")
+    message(FATAL_ERROR "EMITTER is required")
+endif()
+if(NOT DEFINED OUTPUT_DIR OR OUTPUT_DIR STREQUAL "")
+    message(FATAL_ERROR "OUTPUT_DIR is required")
+endif()
+if(NOT DEFINED FROZEN_DIR OR FROZEN_DIR STREQUAL "")
+    message(FATAL_ERROR "FROZEN_DIR is required")
+endif()
+if(NOT DEFINED SOURCE_MANIFEST OR NOT EXISTS "${SOURCE_MANIFEST}")
+    message(FATAL_ERROR "SOURCE_MANIFEST must reference an existing receipt")
+endif()
+if(NOT DEFINED SOURCE_MANIFEST_CHECKER OR NOT EXISTS "${SOURCE_MANIFEST_CHECKER}")
+    message(FATAL_ERROR "SOURCE_MANIFEST_CHECKER is required")
+endif()
+if(NOT DEFINED PYTHON_EXECUTABLE OR NOT EXISTS "${PYTHON_EXECUTABLE}")
+    message(FATAL_ERROR "PYTHON_EXECUTABLE is required")
+endif()
+
+execute_process(
+    COMMAND "${PYTHON_EXECUTABLE}" "${SOURCE_MANIFEST_CHECKER}"
+        --check --output "${SOURCE_MANIFEST}"
+    RESULT_VARIABLE source_manifest_result
+    OUTPUT_VARIABLE source_manifest_output
+    ERROR_VARIABLE source_manifest_error)
+if(NOT source_manifest_result EQUAL 0)
+    message(FATAL_ERROR
+        "source manifest verification failed: ${source_manifest_output}${source_manifest_error}")
+endif()
+
+set(first "${OUTPUT_DIR}/first")
+set(second "${OUTPUT_DIR}/second")
+file(REMOVE_RECURSE "${OUTPUT_DIR}")
+
+foreach(directory IN ITEMS "${first}" "${second}")
+    execute_process(
+        COMMAND "${EMITTER}" "${directory}"
+        RESULT_VARIABLE result
+        OUTPUT_VARIABLE standard_output
+        ERROR_VARIABLE standard_error)
+    if(NOT result EQUAL 0)
+        message(FATAL_ERROR "emitter failed with code ${result}: ${standard_error}")
+    endif()
+    if(NOT standard_output STREQUAL "" OR NOT standard_error STREQUAL "")
+        message(FATAL_ERROR "successful emitter invocation must be quiet")
+    endif()
+endforeach()
+
+execute_process(
+    COMMAND "${EMITTER}" "${first}"
+    RESULT_VARIABLE reused_result
+    OUTPUT_VARIABLE reused_output
+    ERROR_VARIABLE reused_error)
+if(reused_result EQUAL 0)
+    message(FATAL_ERROR "emitter accepted a non-empty output directory")
+endif()
+if(NOT reused_output STREQUAL ""
+   OR NOT reused_error MATCHES "^protocol-fixture-emitter: emission failed")
+    message(FATAL_ERROR "reused output directory did not fail generically")
+endif()
+
+file(READ "${first}/manifest.json" manifest)
+file(READ "${FROZEN_DIR}/manifest.json" frozen_manifest)
+string(JSON schema GET "${manifest}" schema)
+string(JSON oracle GET "${manifest}" oracle)
+string(JSON source_revision GET "${manifest}" sourceRevision)
+string(JSON source_manifest GET "${manifest}" sourceManifest)
+string(JSON platform GET "${manifest}" platform)
+string(JSON architecture GET "${manifest}" architecture)
+string(JSON compiler GET "${manifest}" compiler)
+string(JSON endianness GET "${manifest}" endianness)
+string(JSON fixture_count LENGTH "${manifest}" fixtures)
+string(JSON frozen_schema GET "${frozen_manifest}" schema)
+string(JSON frozen_oracle GET "${frozen_manifest}" oracle)
+string(JSON frozen_source_revision GET "${frozen_manifest}" sourceRevision)
+string(JSON frozen_source_manifest GET "${frozen_manifest}" sourceManifest)
+string(JSON frozen_platform GET "${frozen_manifest}" platform)
+string(JSON frozen_architecture GET "${frozen_manifest}" architecture)
+string(JSON frozen_compiler GET "${frozen_manifest}" compiler)
+string(JSON frozen_endianness GET "${frozen_manifest}" endianness)
+string(JSON frozen_fixture_count LENGTH "${frozen_manifest}" fixtures)
+if(NOT schema EQUAL 1
+   OR NOT oracle STREQUAL "C++ InputLeap wire oracle"
+   OR NOT source_revision STREQUAL EXPECTED_SOURCE_REVISION
+   OR NOT source_manifest STREQUAL "docs/architecture/rust-rewrite/r0-source-manifest.json"
+   OR NOT platform STREQUAL EXPECTED_PLATFORM
+   OR NOT architecture STREQUAL EXPECTED_ARCHITECTURE
+   OR NOT compiler STREQUAL EXPECTED_COMPILER
+   OR NOT endianness STREQUAL EXPECTED_ENDIANNESS
+   OR NOT fixture_count EQUAL 10)
+    message(FATAL_ERROR "unexpected manifest contract")
+endif()
+if(NOT frozen_schema EQUAL 1
+   OR NOT frozen_oracle STREQUAL "C++ InputLeap wire oracle"
+   OR frozen_source_revision STREQUAL ""
+   OR NOT frozen_source_manifest STREQUAL "docs/architecture/rust-rewrite/r0-source-manifest.json"
+   OR frozen_platform STREQUAL ""
+   OR frozen_architecture STREQUAL ""
+   OR frozen_compiler STREQUAL ""
+   OR frozen_endianness STREQUAL ""
+   OR NOT frozen_fixture_count EQUAL 10)
+    message(FATAL_ERROR "unexpected frozen manifest provenance")
+endif()
+
+set(expected_names
+    "writef-consecutive-strings"
+    "remote-hello-1-6"
+    "remote-hello-back-1-7"
+    "remote-truncated-prefix"
+    "remote-oversized-length"
+    "remote-unknown-code"
+    "ipc-ihel-gui"
+    "ipc-ihel-missing-type"
+    "ipc-unknown-code"
+    "ipc-ilog-oversized-string")
+set(expected_categories
+    "Accepted" "Accepted" "UnsupportedVersion" "NeedMore" "Oversized"
+    "Malformed" "Accepted" "NeedMore" "Malformed" "Oversized")
+set(expected_oracles
+    "ProtocolUtil::writef"
+    "ProtocolUtil::writef + PacketStreamFilter::write framing"
+    "ProtocolUtil::writef + PacketStreamFilter::write framing"
+    "PacketStreamFilter wire contract"
+    "PacketStreamFilter wire contract"
+    "PacketStreamFilter framing + protocol message-code contract"
+    "ProtocolUtil::writef + IPC constants"
+    "IPC message-code contract"
+    "IPC message-code contract"
+    "IPC constants + ProtocolUtil string-length contract")
+set(expected_sizes 21 15 29 3 4 8 5 4 4 8)
+set(expected_kinds
+    "payload" "remote-frame" "remote-frame" "remote-frame" "remote-frame"
+    "remote-frame" "ipc-stream" "ipc-stream" "ipc-stream" "ipc-stream")
+set(expected_symbols
+    "ProtocolUtil::writef"
+    "kMsgHello\; ProtocolUtil::writef\; PacketStreamFilter::write"
+    "kMsgHelloBack\; ProtocolUtil::writef\; PacketStreamFilter::write"
+    "PacketStreamFilter::readPacketSize"
+    "PacketStreamFilter::readPacketSize"
+    "PacketStreamFilter::write\; message dispatch"
+    "kIpcMsgHello\; ProtocolUtil::writef\; IpcFrameReader"
+    "kIpcMsgHello\; IpcFrameReader"
+    "IpcFrameReader"
+    "kIpcMsgLogLine\; IpcFrameReader")
+set(expected_sha256
+    "f13d735382c16dc88eb0a8b2be98aef85e504da6b4765826110cb71169eb97f4"
+    "ac3a65a3589ff7f339f727a87fa84c6f8713b98158a499b5787e26ed69592cc2"
+    "ca07c6ca83c2556398ce9afe096167f884f6d44633af854ea54aaba56debfc02"
+    "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c"
+    "3b6042b0e6b0b5632ba6d918b08c929cc49cdec5713e4f540c3d171fd2b89347"
+    "8496d561569561ba87aa1bd4839216132acb23d5b8d56ed654e8a37171cd0776"
+    "f1e101538aeaae426dfe9cae3207f2408b9c9fe8044da57483439529d58d8e76"
+    "71ea1bddb69cac69704f9b1942581f52625fe16622f0ee4341f3924d6866b8c8"
+    "967411641f205748bbbd223a23d4e06b6e609648102da0d886a709108a499889"
+    "d9c1b8019a0fec511ca7d4e6cdee47d04da54855aba2951fc79858a92c9e4af5")
+set(expected_hex
+    "5445535400000005616c7068610000000462657461"
+    "0000000b4261727269657200010006"
+    "0000001942617272696572000100070000000a6b61742d636c69656e74"
+    "000000"
+    "00400001"
+    "000000045a5a5a5a"
+    "4948454c01"
+    "4948454c"
+    "5a5a5a5a"
+    "494c4f4700100001")
+
+execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E compare_files
+        "${first}/manifest.json" "${second}/manifest.json"
+    RESULT_VARIABLE manifest_comparison)
+if(NOT manifest_comparison EQUAL 0)
+    message(FATAL_ERROR "non-deterministic output: manifest.json")
+endif()
+
+set(expected_directory_entries "manifest.json")
+foreach(expected_name IN LISTS expected_names)
+    list(APPEND expected_directory_entries "${expected_name}.bin")
+endforeach()
+list(SORT expected_directory_entries)
+file(GLOB generated_directory_entries RELATIVE "${first}" "${first}/*")
+file(GLOB frozen_directory_entries RELATIVE "${FROZEN_DIR}" "${FROZEN_DIR}/*")
+list(SORT generated_directory_entries)
+list(SORT frozen_directory_entries)
+if(NOT generated_directory_entries STREQUAL expected_directory_entries)
+    message(FATAL_ERROR "generated fixture directory has missing or extra entries")
+endif()
+if(NOT frozen_directory_entries STREQUAL expected_directory_entries)
+    message(FATAL_ERROR "frozen fixture directory has missing or extra entries")
+endif()
+
+math(EXPR last_fixture "${fixture_count} - 1")
+foreach(index RANGE 0 ${last_fixture})
+    list(GET expected_names ${index} expected_name)
+    list(GET expected_categories ${index} expected_category)
+    list(GET expected_oracles ${index} expected_oracle)
+    list(GET expected_sizes ${index} expected_size)
+    list(GET expected_kinds ${index} expected_kind)
+    list(GET expected_symbols ${index} expected_symbol)
+    list(GET expected_sha256 ${index} expected_hash)
+    list(GET expected_hex ${index} expected_fixture_hex)
+    set(expected_path "${expected_name}.bin")
+
+    string(JSON fixture_name GET "${manifest}" fixtures ${index} name)
+    string(JSON fixture_category GET "${manifest}" fixtures ${index} category)
+    string(JSON fixture_oracle GET "${manifest}" fixtures ${index} oracle)
+    string(JSON fixture_kind GET "${manifest}" fixtures ${index} kind)
+    string(JSON fixture_symbol GET "${manifest}" fixtures ${index} sourceSymbol)
+    string(JSON fixture_hash GET "${manifest}" fixtures ${index} sha256)
+    string(JSON fixture_path GET "${manifest}" fixtures ${index} path)
+    string(JSON fixture_size GET "${manifest}" fixtures ${index} size)
+    string(JSON frozen_fixture_name GET "${frozen_manifest}" fixtures ${index} name)
+    string(JSON frozen_fixture_category GET "${frozen_manifest}" fixtures ${index} category)
+    string(JSON frozen_fixture_oracle GET "${frozen_manifest}" fixtures ${index} oracle)
+    string(JSON frozen_fixture_kind GET "${frozen_manifest}" fixtures ${index} kind)
+    string(JSON frozen_fixture_symbol GET "${frozen_manifest}" fixtures ${index} sourceSymbol)
+    string(JSON frozen_fixture_hash GET "${frozen_manifest}" fixtures ${index} sha256)
+    string(JSON frozen_fixture_path GET "${frozen_manifest}" fixtures ${index} path)
+    string(JSON frozen_fixture_size GET "${frozen_manifest}" fixtures ${index} size)
+    if(NOT fixture_name STREQUAL expected_name
+       OR NOT fixture_category STREQUAL expected_category
+       OR NOT fixture_oracle STREQUAL expected_oracle
+       OR NOT fixture_kind STREQUAL expected_kind
+       OR NOT fixture_symbol STREQUAL expected_symbol
+       OR NOT fixture_hash STREQUAL expected_hash
+       OR NOT fixture_path STREQUAL expected_path
+       OR NOT fixture_size EQUAL expected_size)
+        message(FATAL_ERROR "unexpected manifest fixture at index ${index}")
+    endif()
+    if(NOT frozen_fixture_name STREQUAL expected_name
+       OR NOT frozen_fixture_category STREQUAL expected_category
+       OR NOT frozen_fixture_oracle STREQUAL expected_oracle
+       OR NOT frozen_fixture_kind STREQUAL expected_kind
+       OR NOT frozen_fixture_symbol STREQUAL expected_symbol
+       OR NOT frozen_fixture_hash STREQUAL expected_hash
+       OR NOT frozen_fixture_path STREQUAL expected_path
+       OR NOT frozen_fixture_size EQUAL expected_size)
+        message(FATAL_ERROR "unexpected frozen manifest fixture at index ${index}")
+    endif()
+
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -E compare_files
+            "${first}/${expected_path}" "${second}/${expected_path}"
+        RESULT_VARIABLE fixture_comparison)
+    if(NOT fixture_comparison EQUAL 0)
+        message(FATAL_ERROR "non-deterministic output: ${expected_path}")
+    endif()
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -E compare_files
+            "${first}/${expected_path}" "${FROZEN_DIR}/${expected_path}"
+        RESULT_VARIABLE frozen_fixture_comparison)
+    if(NOT frozen_fixture_comparison EQUAL 0)
+        message(FATAL_ERROR "generated fixture differs from frozen fixture: ${expected_path}")
+    endif()
+    file(READ "${first}/${expected_path}" fixture_hex HEX)
+    if(NOT fixture_hex STREQUAL expected_fixture_hex)
+        message(FATAL_ERROR "unexpected fixture bytes: ${expected_path}")
+    endif()
+endforeach()
+
+execute_process(
+    COMMAND "${EMITTER}"
+    RESULT_VARIABLE invalid_result
+    OUTPUT_VARIABLE invalid_output
+    ERROR_VARIABLE invalid_error)
+if(invalid_result EQUAL 0)
+    message(FATAL_ERROR "emitter accepted missing output directory")
+endif()
+if(NOT invalid_output STREQUAL "")
+    message(FATAL_ERROR "invalid invocation wrote to stdout")
+endif()
+if(NOT invalid_error MATCHES "^protocol-fixture-emitter: expected one output directory")
+    message(FATAL_ERROR "invalid invocation did not use the generic error")
+endif()

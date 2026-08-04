@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.6-incompatible-version-differential-fixture",
+  "tranche": "R2.6",
+  "sourceRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "167a70874bb4a136b7b65b12ff5f78b25bedbde6cfc35f06fe0188ecfd6c1cef",
+  "interopScope": "payload bytes and PacketStreamFilter outer framing",
+  "rustStatefulCoverage": "none",
+  "cppStatefulCoverage": "real ServerProxy client-handshake dispatch via public STREAM_INPUT_READY event API",
+  "terminalityScope": "Rust parser metadata plus separately observed C++ CLIENT_CONNECTION_FAILED effect",
+  "numericOracle": "ProtocolUtil writer bytes only; ServerProxy logged major/minor values are excluded",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixture": {
+    "message": "EICV",
+    "format": "EICV%2i%2i",
+    "file": "remote-eicv-1-6-payload.bin",
+    "size": 8,
+    "sha256": "9391b1e4703549b5c2d4da4e1603da72e1009c72ffc5419341d3c7bb6eb8cc90",
+    "cppSymbol": "kMsgEIncompatible",
+    "fieldTypes": [
+      "major:i16",
+      "minor:i16"
+    ],
+    "decodeContexts": [
+      "server-to-client/client-handshake"
+    ],
+    "decodeStructuralValues": "all i16 bit patterns",
+    "encodeObservedContexts": [
+      "server-to-client/client-handshake"
+    ],
+    "encodeObservedValues": [
+      [
+        1,
+        6
+      ]
+    ],
+    "rejectedContexts": [
+      "server-to-client/server-awaiting-hello-back",
+      "server-to-client/server-awaiting-info",
+      "server-to-client/active",
+      "client-to-server/client-handshake",
+      "client-to-server/server-awaiting-hello-back",
+      "client-to-server/server-awaiting-info",
+      "client-to-server/active"
+    ],
+    "boundary": 8,
+    "terminal": true,
+    "sourceRefs": [
+      "src/lib/inputleap/protocol_types.cpp:52",
+      "src/lib/inputleap/ProtocolUtil.cpp:215-269",
+      "src/lib/inputleap/PacketStreamFilter.cpp:87-99",
+      "src/lib/server/ClientProxyUnknown.cpp:145-220",
+      "src/lib/client/ServerProxy.cpp:150-219"
+    ]
+  },
+  "outerFrame": {
+    "producer": "PacketStreamFilter::write",
+    "size": 12,
+    "hex": "000000084549435600010006"
+  },
+  "consumerHazard": {
+    "description": "ServerProxy passes int32_t pointers for %2i while ProtocolUtil::vreadf writes through uint16_t pointers",
+    "policy": "never assert or compare C++ consumer major/minor values",
+    "sourceRefs": [
+      "src/lib/client/ServerProxy.cpp:189-195",
+      "src/lib/inputleap/ProtocolUtil.h:74-84",
+      "src/lib/inputleap/ProtocolUtil.cpp:215-269"
+    ]
+  },
+  "harnesses": [
+    {
+      "file": "../../../../../src/test/rust-r2/IncompatibleVersionInterop.cpp",
+      "sha256": "e338d348c24f980c1420b72d67a83922c3735f53830c46823a927cd0eaf33a56",
+      "coverage": "ProtocolUtil writer payload bytes and PacketStreamFilter outer framing; C++ decode is raw byte equality only"
+    },
+    {
+      "file": "../../../../../src/test/rust-r2/IncompatibleVersionStatefulInterop.cpp",
+      "sha256": "b749a2a3d57706ff990356f9dd1c83f34a88fe9eb0a872752cf3d6e89f39f36b",
+      "coverage": "real ServerProxy public-event terminal effect; numeric fields are never asserted"
+    }
+  ],
+  "statefulCases": [
+    "client-handshake: public STREAM_INPUT_READY dispatch emits CLIENT_CONNECTION_FAILED and stops before trailing QINF"
+  ],
+  "limitations": [
+    "Rust is a codec only and does not execute disconnect or state transitions",
+    "C++ consumer numeric fields are not evidence because of the int32_t/uint16_t pointer-width mismatch"
+  ]
+}

@@ -1,0 +1,487 @@
+{
+  "schema": 1,
+  "name": "inputleap-rust-r0-source-manifest",
+  "scope": "R0 C++ wire/IPC/pairing oracles, fixtures, tests, contracts, and build wiring",
+  "textHashNormalization": "CRLF-to-LF; lone CR rejected; .bin hashed raw",
+  "baseRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "snapshotKind": "dirty-working-tree-content-manifest",
+  "branchAtFreeze": "fix/tls-rejected-socket-cleanup",
+  "pathCount": 79,
+  "contentDigest": "18630998c97ed3872c66dcf13f7c457417680c8bc89c4c616a8219c95bce3686",
+  "files": [
+    {
+      "path": ".gitignore",
+      "size": 1133,
+      "hashMode": "canonical-lf",
+      "sha256": "fe5f238ac9bf7667eb8271f99298db210e4c322e5255f67895c97eaedc482de1"
+    },
+    {
+      "path": ".hermes/scripts/generate-rust-r0-source-manifest.py",
+      "size": 7471,
+      "hashMode": "canonical-lf",
+      "sha256": "6b0314ec1f1b028e5c25e18e2b5bff0c409c9d9c91c9c7406a01aab9cf0bab38"
+    },
+    {
+      "path": ".hermes/scripts/rust-r0-unittests.bat",
+      "size": 1494,
+      "hashMode": "canonical-lf",
+      "sha256": "fd1aa3e1ae15e555d8f33f4a3619b65a019fb348704412eaf1f1f763726a98b8"
+    },
+    {
+      "path": "CMakeLists.txt",
+      "size": 14958,
+      "hashMode": "canonical-lf",
+      "sha256": "24a528a9645663d0600d2a8ceb5fbfc1ed36a031955b565e9aeb96f6ed11b548"
+    },
+    {
+      "path": "cmake/ProjectOptions.cmake",
+      "size": 2969,
+      "hashMode": "canonical-lf",
+      "sha256": "db8d3e0b55d601c05560d768104c7af7db710ff5605fcc8f707cbe8574c2ea0d"
+    },
+    {
+      "path": "docs/architecture/rust-rewrite/contract-inventory.md",
+      "size": 19737,
+      "hashMode": "canonical-lf",
+      "sha256": "eeec2fbb0a790cfd3540476f5f9336c6446a048f980c554419faed111514c925"
+    },
+    {
+      "path": "docs/architecture/rust-rewrite/threat-model.md",
+      "size": 11550,
+      "hashMode": "canonical-lf",
+      "sha256": "8ca625be99b9e0578d30e913ad63ca0a8913f08b06fdfcd4455fa63a4feeeba1"
+    },
+    {
+      "path": "src/gui/CMakeLists.txt",
+      "size": 37203,
+      "hashMode": "canonical-lf",
+      "sha256": "506cef1db304397e8e23f7aa7f075c62417b0556fb7cac0903be5d8521241f54"
+    },
+    {
+      "path": "src/gui/src/FileTransferService.cpp",
+      "size": 102658,
+      "hashMode": "canonical-lf",
+      "sha256": "1dc772db0bda6b7753316ed4c2749bcc6b105eb88be401bc65c04a5e51cbaede"
+    },
+    {
+      "path": "src/gui/src/FileTransferService.h",
+      "size": 7198,
+      "hashMode": "canonical-lf",
+      "sha256": "f0f6f7f8e4490af3fd550eb69c59baad78d76c0a7a2000e0d878285ec75767d3"
+    },
+    {
+      "path": "src/gui/src/Ipc.cpp",
+      "size": 1372,
+      "hashMode": "canonical-lf",
+      "sha256": "626e4749209b640cc6f7e21567f86376907f7defac81fc1cb05ac31b0117634e"
+    },
+    {
+      "path": "src/gui/src/Ipc.h",
+      "size": 1934,
+      "hashMode": "canonical-lf",
+      "sha256": "6d9ca99dbb0ff7ca97da82512e1ce6d9321cd293d6119690325c3baaaa279d06"
+    },
+    {
+      "path": "src/gui/src/IpcClient.cpp",
+      "size": 10591,
+      "hashMode": "canonical-lf",
+      "sha256": "89e0b475ac2ba8b0f1528b206185179cf98759cb0a818c2e98ca0ba7003ce174"
+    },
+    {
+      "path": "src/gui/src/IpcClient.h",
+      "size": 3474,
+      "hashMode": "canonical-lf",
+      "sha256": "25126e03c4001eb88e797dd951e095f43c683d7d106898fa4b5150a196630e43"
+    },
+    {
+      "path": "src/gui/src/IpcReader.cpp",
+      "size": 6252,
+      "hashMode": "canonical-lf",
+      "sha256": "590d5996b81ad8cb4e5180a24e3998fc1740840cb0f2ae85fb1c8419552a8a68"
+    },
+    {
+      "path": "src/gui/src/IpcReader.h",
+      "size": 2336,
+      "hashMode": "canonical-lf",
+      "sha256": "2090243e6ac8af60fe6d17b5146c8e34f39768223aa2410b3a9ece5f171997cb"
+    },
+    {
+      "path": "src/gui/src/PairingProtocolCodec.cpp",
+      "size": 11161,
+      "hashMode": "canonical-lf",
+      "sha256": "eb335ff87ffa65ff14ffd03368f4e5c947dfab164f7ba5f1e2e3111602e59d84"
+    },
+    {
+      "path": "src/gui/src/PairingProtocolCodec.h",
+      "size": 1439,
+      "hashMode": "canonical-lf",
+      "sha256": "e730644136f7e2daa80d070b6efac123f5b8f165d78ba18db8c0905e9d816cff"
+    },
+    {
+      "path": "src/gui/src/PairingService.cpp",
+      "size": 20035,
+      "hashMode": "canonical-lf",
+      "sha256": "2e69ccc9a2cf6e86c3dab0f3226536ee14955eec5278974dff4166e54c34034e"
+    },
+    {
+      "path": "src/gui/src/PairingService.h",
+      "size": 2403,
+      "hashMode": "canonical-lf",
+      "sha256": "496b0d5a11a7688a2e9defcfcd8daff6922d8ae2806a3db83a23137df865c097"
+    },
+    {
+      "path": "src/gui/test/PairingServiceTests.cpp",
+      "size": 17443,
+      "hashMode": "canonical-lf",
+      "sha256": "0cbeb18526a0873b6c055f33278c05c31c3c2adc38ea382fa77eebb5d47f836c"
+    },
+    {
+      "path": "src/gui/test/fixtures/pairing-srp6a-hkdf-v1.json",
+      "size": 2742,
+      "hashMode": "canonical-lf",
+      "sha256": "1f3153e80763a6773e844738e5096b23fcfaf1136f193ddb5fe3b9d6159d2fdd"
+    },
+    {
+      "path": "src/lib/client/Client.cpp",
+      "size": 25869,
+      "hashMode": "canonical-lf",
+      "sha256": "0333ecdd7c7855ed123a988f54546d151ab32fa2d7c360811a9a68ddd651be55"
+    },
+    {
+      "path": "src/lib/client/Client.h",
+      "size": 7053,
+      "hashMode": "canonical-lf",
+      "sha256": "0701ed56e4df05e25edbe01fd8df93e12077416bc25ea0ffabc3780c60833cfa"
+    },
+    {
+      "path": "src/lib/client/ServerProxy.cpp",
+      "size": 25454,
+      "hashMode": "canonical-lf",
+      "sha256": "848fabe97d5ad4d115b3e7f4dc3e246781982f61859bef3d7ea78cb04724c241"
+    },
+    {
+      "path": "src/lib/client/ServerProxy.h",
+      "size": 3586,
+      "hashMode": "canonical-lf",
+      "sha256": "2f0398454b0723be5a654c1c5f2e48563e728d401ce55d244f4d870b1b6c028c"
+    },
+    {
+      "path": "src/lib/inputleap/ClipboardChunk.cpp",
+      "size": 2876,
+      "hashMode": "canonical-lf",
+      "sha256": "c9e0daf4d8a41a973f6153d4917acf1c4a505110d18e5c10f01d4135e81b9f53"
+    },
+    {
+      "path": "src/lib/inputleap/ClipboardChunk.h",
+      "size": 1559,
+      "hashMode": "canonical-lf",
+      "sha256": "0ef408822c3fa180e8cc81dbaf41ed4af5d59f5ab1edc8cc17a79ea2782fdf58"
+    },
+    {
+      "path": "src/lib/inputleap/FileChunk.cpp",
+      "size": 3805,
+      "hashMode": "canonical-lf",
+      "sha256": "8f15722e0d7985eda288e677f7d5a05e4673fd44dcfc818394006ee709ad9558"
+    },
+    {
+      "path": "src/lib/inputleap/FileChunk.h",
+      "size": 1161,
+      "hashMode": "canonical-lf",
+      "sha256": "e0c6e6ea54f9bd7bf715328e1ab07250d3d66ead7e742e194f98cb85b714098d"
+    },
+    {
+      "path": "src/lib/inputleap/PacketStreamFilter.cpp",
+      "size": 5382,
+      "hashMode": "canonical-lf",
+      "sha256": "f40e2f54d9d0fad0c1039e147d464fcb6127bffdfbb32efb2238f8ead8ee8fea"
+    },
+    {
+      "path": "src/lib/inputleap/PacketStreamFilter.h",
+      "size": 1839,
+      "hashMode": "canonical-lf",
+      "sha256": "022283b8203d8d92a8f9b144f5dc9580ce20345489ccac111fc0a3c5d457c544"
+    },
+    {
+      "path": "src/lib/inputleap/ProtocolUtil.cpp",
+      "size": 18298,
+      "hashMode": "canonical-lf",
+      "sha256": "8be1a60df1db5d75988d17b612042255e5328a82a102286fc62b9ea13d48ae3c"
+    },
+    {
+      "path": "src/lib/inputleap/ProtocolUtil.h",
+      "size": 6487,
+      "hashMode": "canonical-lf",
+      "sha256": "3585ff75bbb5e97a471cfaa1bd5852e7e715a55b3055bbad0e0bec5559a1ad98"
+    },
+    {
+      "path": "src/lib/inputleap/Screen.cpp",
+      "size": 11456,
+      "hashMode": "canonical-lf",
+      "sha256": "75f6bc1a9ea22ef0198fd399eaee7247b30f0b5be38a1cd54f753384929dc8c7"
+    },
+    {
+      "path": "src/lib/inputleap/protocol_types.cpp",
+      "size": 2922,
+      "hashMode": "canonical-lf",
+      "sha256": "fdb71cf69ee875158e84bd302651abb7cccd766200d4433a1ae686f3f22cd8a3"
+    },
+    {
+      "path": "src/lib/inputleap/protocol_types.h",
+      "size": 11685,
+      "hashMode": "canonical-lf",
+      "sha256": "5524dba90b4e7858eda71d026e64b708d39dd70d45d3651bdf01a956f935a335"
+    },
+    {
+      "path": "src/lib/inputleap/win32/DaemonApp.cpp",
+      "size": 42966,
+      "hashMode": "canonical-lf",
+      "sha256": "bdb3cc1a1bfba31c5cfce3860d979cfe9539eb0e05c21e1eeceb755b5e93c0f4"
+    },
+    {
+      "path": "src/lib/inputleap/win32/DaemonApp.h",
+      "size": 5772,
+      "hashMode": "canonical-lf",
+      "sha256": "7c56405973fe40e3db6a7c21aeeba7b823e9d5a2f9870c1421ac38d3420796ff"
+    },
+    {
+      "path": "src/lib/io/StreamFilter.cpp",
+      "size": 2339,
+      "hashMode": "canonical-lf",
+      "sha256": "6d4a20c1e0294d9dc1b8baf7daa7bc5ceaf3b8409bec5ab8995cf756bcfb3322"
+    },
+    {
+      "path": "src/lib/ipc/Ipc.cpp",
+      "size": 1531,
+      "hashMode": "canonical-lf",
+      "sha256": "5d17a87b16f9a322f11555eac74026f8ea01c15d07778c16fb2bc9edc3fa38d7"
+    },
+    {
+      "path": "src/lib/ipc/Ipc.h",
+      "size": 3432,
+      "hashMode": "canonical-lf",
+      "sha256": "0873ae84a1cc913c9cdcea9702f3aad74c3d3e491bedbeafb3bb3c8e415bb7a7"
+    },
+    {
+      "path": "src/lib/ipc/IpcClientProxy.cpp",
+      "size": 10592,
+      "hashMode": "canonical-lf",
+      "sha256": "4b8a4a4a3af23335c8f55aacf7119be0ea75137cadfaa83126dd19bcd0a9cb74"
+    },
+    {
+      "path": "src/lib/ipc/IpcConnectionStateStore.cpp",
+      "size": 2748,
+      "hashMode": "canonical-lf",
+      "sha256": "1b2975313c26a71395f2e702b7bb1c15b37d0d12bb1fb3eb990feda23c3c73d8"
+    },
+    {
+      "path": "src/lib/ipc/IpcConnectionStateStore.h",
+      "size": 1303,
+      "hashMode": "canonical-lf",
+      "sha256": "d75b7b88dd16e18aef7f869739df27ff1640cbba8aff5412004091bab7ff2030"
+    },
+    {
+      "path": "src/lib/ipc/IpcFrameReader.cpp",
+      "size": 12807,
+      "hashMode": "canonical-lf",
+      "sha256": "4386e3cb1c653222b36b5ad7d8a6a4199c00423a110abb75b6fb772a384f10f0"
+    },
+    {
+      "path": "src/lib/ipc/IpcFrameReader.h",
+      "size": 1043,
+      "hashMode": "canonical-lf",
+      "sha256": "d75e74f0b65f76a6b6fe38320d6fe871374498846e8e8c9174b1242a3de36d79"
+    },
+    {
+      "path": "src/lib/ipc/IpcMessage.cpp",
+      "size": 5639,
+      "hashMode": "canonical-lf",
+      "sha256": "17c4c43335341188a654ef55654a7d784ba05d5683aaa625885a6cc2c30ceea7"
+    },
+    {
+      "path": "src/lib/ipc/IpcMessage.h",
+      "size": 6062,
+      "hashMode": "canonical-lf",
+      "sha256": "70b20a1bcaa478d207a7c0f81dfd05f3516e1dc3c641f5b50fc6269a4b32d3b5"
+    },
+    {
+      "path": "src/lib/ipc/IpcServerProxy.cpp",
+      "size": 6593,
+      "hashMode": "canonical-lf",
+      "sha256": "9fd1f8778e4520604d3f7b1b78a512df3cdc9260a31f2c1a7151cf04355d98e6"
+    },
+    {
+      "path": "src/lib/server/ClientConnectionByStream.cpp",
+      "size": 4752,
+      "hashMode": "canonical-lf",
+      "sha256": "6f5a450789167c388e3f3e33b03209fadbe0f7fb965fa02f6dfb1d924d491ab1"
+    },
+    {
+      "path": "src/lib/server/ClientConnectionByStream.h",
+      "size": 2734,
+      "hashMode": "canonical-lf",
+      "sha256": "69df29e9241de456cbc9e306a0c14f3a58063554a66dc75cd34e1c6566cfb32a"
+    },
+    {
+      "path": "src/lib/server/ClientProxy.cpp",
+      "size": 1271,
+      "hashMode": "canonical-lf",
+      "sha256": "d4966d1ce29486b0f6d2d5123918db5970fd7650d6f53cf638aabca8dd7a3734"
+    },
+    {
+      "path": "src/lib/server/ClientProxy.h",
+      "size": 1539,
+      "hashMode": "canonical-lf",
+      "sha256": "4e4f4807cb262e87ed5eb20c59c1c0fae574d824e802f4f9ddcb7760d078e62d"
+    },
+    {
+      "path": "src/lib/server/ClientProxy1_6.cpp",
+      "size": 17029,
+      "hashMode": "canonical-lf",
+      "sha256": "cf962f11b05123bb4505646247436d080e5f9737c763300573e4ffcef48a59fb"
+    },
+    {
+      "path": "src/lib/server/ClientProxy1_6.h",
+      "size": 4078,
+      "hashMode": "canonical-lf",
+      "sha256": "9506a5990983636a9b68b5cba97f10aa7f9ceed526334eb518962db2803db287"
+    },
+    {
+      "path": "src/lib/server/ClientProxyUnknown.cpp",
+      "size": 7865,
+      "hashMode": "canonical-lf",
+      "sha256": "75daa7e74c557271c6f9216aed9e3e1e8de54080dc8774334d9a214f1555cf83"
+    },
+    {
+      "path": "src/lib/server/ClientProxyUnknown.h",
+      "size": 2077,
+      "hashMode": "canonical-lf",
+      "sha256": "ce428f60958dd6cbf48f846c8e1021e9cce1c85748aaa7062af622035ff40e1d"
+    },
+    {
+      "path": "src/lib/server/Server.cpp",
+      "size": 67009,
+      "hashMode": "canonical-lf",
+      "sha256": "4adee5cb5e2aa8259939c0ceb027ea4224c9b923150f79de905b81867cd8ebe9"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/ipc-ihel-gui.bin",
+      "size": 5,
+      "hashMode": "raw",
+      "sha256": "f1e101538aeaae426dfe9cae3207f2408b9c9fe8044da57483439529d58d8e76"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/ipc-ihel-missing-type.bin",
+      "size": 4,
+      "hashMode": "raw",
+      "sha256": "71ea1bddb69cac69704f9b1942581f52625fe16622f0ee4341f3924d6866b8c8"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/ipc-ilog-oversized-string.bin",
+      "size": 8,
+      "hashMode": "raw",
+      "sha256": "d9c1b8019a0fec511ca7d4e6cdee47d04da54855aba2951fc79858a92c9e4af5"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/ipc-unknown-code.bin",
+      "size": 4,
+      "hashMode": "raw",
+      "sha256": "967411641f205748bbbd223a23d4e06b6e609648102da0d886a709108a499889"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/manifest.json",
+      "size": 4098,
+      "hashMode": "canonical-lf",
+      "sha256": "64c62a80046fd00a8b23597075117d1d71e1b50cf325e2ce3d89762ebe239e0b"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/remote-hello-1-6.bin",
+      "size": 15,
+      "hashMode": "raw",
+      "sha256": "ac3a65a3589ff7f339f727a87fa84c6f8713b98158a499b5787e26ed69592cc2"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/remote-hello-back-1-7.bin",
+      "size": 29,
+      "hashMode": "raw",
+      "sha256": "ca07c6ca83c2556398ce9afe096167f884f6d44633af854ea54aaba56debfc02"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/remote-oversized-length.bin",
+      "size": 4,
+      "hashMode": "raw",
+      "sha256": "3b6042b0e6b0b5632ba6d918b08c929cc49cdec5713e4f540c3d171fd2b89347"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/remote-truncated-prefix.bin",
+      "size": 3,
+      "hashMode": "raw",
+      "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/remote-unknown-code.bin",
+      "size": 8,
+      "hashMode": "raw",
+      "sha256": "8496d561569561ba87aa1bd4839216132acb23d5b8d56ed654e8a37171cd0776"
+    },
+    {
+      "path": "src/test/fixtures/rust-r0-wire/writef-consecutive-strings.bin",
+      "size": 21,
+      "hashMode": "raw",
+      "sha256": "f13d735382c16dc88eb0a8b2be98aef85e504da6b4765826110cb71169eb97f4"
+    },
+    {
+      "path": "src/test/helpers/ProtocolFixtureEmitter.cpp",
+      "size": 14528,
+      "hashMode": "canonical-lf",
+      "sha256": "d9738baeafab5294dc7a28f5fd7497ed7df9156d3fab0f44f52d47419db560ac"
+    },
+    {
+      "path": "src/test/helpers/ProtocolFixtureEmitter.h",
+      "size": 626,
+      "hashMode": "canonical-lf",
+      "sha256": "7aff747e84980e56b93d63b96a306cdb720c993e645142580bef8776d6b99a9b"
+    },
+    {
+      "path": "src/test/helpers/VerifyProtocolFixtureEmitter.cmake.in",
+      "size": 12485,
+      "hashMode": "canonical-lf",
+      "sha256": "1437bf8ce9af2267ffeb41096304825dc8e0ad6b067410cbfbb50718ede4bb89"
+    },
+    {
+      "path": "src/test/integtests/ipc/IpcTests.cpp",
+      "size": 34552,
+      "hashMode": "canonical-lf",
+      "sha256": "4c5ae6aa0f76dc30ab4a355992151613de112e3c0c7833f7b74cdf1fc1e92dec"
+    },
+    {
+      "path": "src/test/unittests/CMakeLists.txt",
+      "size": 5545,
+      "hashMode": "canonical-lf",
+      "sha256": "b5535e3f1d5ab1ff91ee26032221c85854943a0c1a076a7cef680da4726b67ab"
+    },
+    {
+      "path": "src/test/unittests/inputleap/ProtocolFixtureEmitterTests.cpp",
+      "size": 3264,
+      "hashMode": "canonical-lf",
+      "sha256": "ad330b9ae54e8372cc90d7d90d11c23af4dcf0b0062248f59ef8f4ca7655cc57"
+    },
+    {
+      "path": "src/test/unittests/inputleap/ProtocolUtilTests.cpp",
+      "size": 4231,
+      "hashMode": "canonical-lf",
+      "sha256": "910768f93210e92eb43ae04482e1c58d08c1156a02f06b294fa25ceaef587f41"
+    },
+    {
+      "path": "src/test/unittests/ipc/IpcConnectionStateStoreTests.cpp",
+      "size": 11818,
+      "hashMode": "canonical-lf",
+      "sha256": "3a75624c44f41055b7b419f0a989eb9a1261e6d776f621516c4ee313c7396397"
+    },
+    {
+      "path": "src/test/unittests/ipc/IpcFrameReaderTests.cpp",
+      "size": 10037,
+      "hashMode": "canonical-lf",
+      "sha256": "98cf430fe36d8d64d4d11f99db69909f5bdc4ddd80e47ff7ed65aac8a84a0074"
+    }
+  ]
+}

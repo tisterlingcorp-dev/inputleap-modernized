@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.7-screen-saver-differential-fixtures",
+  "tranche": "R2.7",
+  "sourceRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "dfcb36366f2a6b8d19e541a50847d2ddf6b82dacf21fc3b8744becfe5ef95fc6",
+  "interopScope": "payload bytes and PacketStreamFilter outer framing",
+  "rustStatefulCoverage": "none",
+  "cppStatefulCoverage": "real ServerProxy active dispatch via public STREAM_INPUT_READY event API into a recording Client override",
+  "valueSemantics": "decode preserves raw u8; C++ consumes zero as false and every nonzero value as true; productive bool writer emits only 0 and 1",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixtures": [
+    {
+      "state": "off",
+      "file": "remote-csec-off-payload.bin",
+      "raw": 0,
+      "size": 5,
+      "sha256": "9b5811bf99a4951ab8e6139915a3de4a0831258195a31d96ecfaaf7332151d5b"
+    },
+    {
+      "state": "on",
+      "file": "remote-csec-on-payload.bin",
+      "raw": 1,
+      "size": 5,
+      "sha256": "24f9c720cce25864f82aeb9bd32c6873e8bda0782090a8880551e3daf502b311"
+    }
+  ],
+  "contract": {
+    "message": "CSEC",
+    "format": "CSEC%1i",
+    "cppSymbol": "kMsgCScreenSaver",
+    "fieldTypes": [
+      "raw:u8"
+    ],
+    "decodeContexts": [
+      "server-to-client/active"
+    ],
+    "decodeStructuralValues": "all u8 bit patterns",
+    "encodeObservedContexts": [
+      "server-to-client/active"
+    ],
+    "encodeObservedValues": [
+      0,
+      1
+    ],
+    "rejectedContexts": [
+      "server-to-client/client-handshake",
+      "server-to-client/server-awaiting-hello-back",
+      "server-to-client/server-awaiting-info",
+      "client-to-server/client-handshake",
+      "client-to-server/server-awaiting-hello-back",
+      "client-to-server/server-awaiting-info",
+      "client-to-server/active"
+    ],
+    "boundary": 5,
+    "terminal": false,
+    "sourceRefs": [
+      "src/lib/inputleap/protocol_types.cpp:30",
+      "src/lib/inputleap/ProtocolUtil.cpp:33-192,215-269",
+      "src/lib/inputleap/PacketStreamFilter.cpp:87-99",
+      "src/lib/server/Server.cpp:143-148,299-302,1500-1551",
+      "src/lib/server/ClientProxy1_6.cpp:390-393",
+      "src/lib/server/IClientConnection.h:54",
+      "src/lib/server/ClientConnectionLoggingWrapper.cpp:127-131",
+      "src/lib/server/ClientConnectionByStream.cpp:100-103",
+      "src/lib/client/ServerProxy.cpp:222-280,773-783",
+      "src/lib/client/Client.cpp:326-330",
+      "src/lib/inputleap/Screen.cpp:170-179"
+    ]
+  },
+  "outerFrames": [
+    {
+      "state": "off",
+      "producer": "PacketStreamFilter::write",
+      "size": 9,
+      "hex": "000000054353454300"
+    },
+    {
+      "state": "on",
+      "producer": "PacketStreamFilter::write",
+      "size": 9,
+      "hex": "000000054353454301"
+    }
+  ],
+  "harnesses": [
+    {
+      "file": "../../../../../src/test/rust-r2/ScreenSaverInterop.cpp",
+      "sha256": "aee1f30042c3c3d9e4f15b05c349c18ce9ed4197eac53fcf3d1eaa6d46948ecd",
+      "coverage": "ProtocolUtil writer payload bytes for 0 and 1 plus PacketStreamFilter outer framing; decode is raw byte equality only"
+    },
+    {
+      "file": "../../../../../src/test/rust-r2/ScreenSaverStatefulInterop.cpp",
+      "sha256": "970e9e8016cfefa62439675903c2eec25c7cf0bc5dbff72274ed0a320db3f2c8",
+      "coverage": "real ServerProxy active public-event dispatch observes false,true,true for raw 0,1,255 and continues to trailing CROP without disconnect"
+    }
+  ],
+  "statefulCases": [
+    "client-active: public STREAM_INPUT_READY dispatch maps raw 0,1,255 to false,true,true",
+    "client-active: nonterminal CSEC processing continues to trailing CROP",
+    "client-active: accepted CSEC does not close or emit CLIENT_CONNECTION_FAILED or CLIENT_DISCONNECTED"
+  ],
+  "limitations": [
+    "Rust is a codec only and does not execute screen-saver or protocol-state effects",
+    "The C++ stateful harness observes the virtual Client API boundary; operating-system screen-saver activation is outside this protocol gate"
+  ]
+}

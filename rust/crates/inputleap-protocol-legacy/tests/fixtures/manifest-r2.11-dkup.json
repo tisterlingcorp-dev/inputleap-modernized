@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.11-dkup-differential-fixtures",
+  "tranche": "R2.11",
+  "sourceRevision": "e482fa8f179843f16554f1fb74f098b38c83dcda",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "0008cd995d7ec2175b712e58061404b6c34a677e590b6d8d64c89626437bb305",
+  "interopScope": "DKUP payload bytes through PacketStreamFilter outer framing",
+  "rustStatefulCoverage": "none",
+  "cppStatefulCoverage": "real ServerProxy active dispatch via public STREAM_INPUT_READY event API into RecordingClient keyUp override; every partial DKUP payload length 4 through 9 emits EBAD, raises CLIENT_CONNECTION_FAILED, and produces no key callback; CLIENT_DISCONNECTED and transport close are not claimed",
+  "valueSemantics": "DKUP carries raw KeyID, KeyModifierMask, and KeyButton as three unsigned 16-bit big-endian wire fields",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixtures": [
+    {
+      "kind": "boundary-frame",
+      "file": "remote-dkup-boundary-frame.bin",
+      "keyId": 4660,
+      "modifierMask": 32769,
+      "button": 65535,
+      "size": 14,
+      "sha256": "ee83117b06a2cc16c1f9d9d743cebf9a8a3cd408098379581be14e14d6586a98"
+    }
+  ],
+  "contract": {
+    "messages": [
+      "DKUP"
+    ],
+    "formats": [
+      "DKUP%2i%2i%2i"
+    ],
+    "cppSymbols": [
+      "kMsgDKeyUp"
+    ],
+    "fieldTypes": [
+      "keyId:u16",
+      "modifierMask:u16",
+      "button:u16"
+    ],
+    "decodeContexts": [
+      "server-to-client/active"
+    ],
+    "decodeStructuralValues": "all unsigned u16 triples",
+    "encodeObservedContexts": [
+      "server-to-client/active"
+    ],
+    "encodeWriterDomain": "all unsigned u16 triples",
+    "rejectedContexts": [
+      "server-to-client/client-handshake",
+      "server-to-client/server-awaiting-hello-back",
+      "server-to-client/server-awaiting-info",
+      "client-to-server/client-handshake",
+      "client-to-server/server-awaiting-hello-back",
+      "client-to-server/server-awaiting-info",
+      "client-to-server/active"
+    ],
+    "boundary": 10,
+    "terminal": false,
+    "sourceRefs": [
+      "src/lib/inputleap/protocol_types.cpp:38-39",
+      "src/lib/inputleap/protocol_types.h:204-217",
+      "src/lib/inputleap/key_types.h:23-44",
+      "src/lib/inputleap/ProtocolUtil.h:41-89,100-107",
+      "src/lib/inputleap/ProtocolUtil.cpp:33-192,194-254,256-310,454-497",
+      "src/lib/io/StreamFilter.cpp:24-31,90-99",
+      "src/lib/inputleap/PacketStreamFilter.cpp:87-99,129-147,151-177",
+      "src/lib/server/Server.cpp:1577-1593",
+      "src/lib/server/ClientProxy1_6.cpp:349-352",
+      "src/lib/server/ClientConnectionByStream.cpp:59-62",
+      "src/lib/client/ServerProxy.cpp:40-65,103-140,239-241,645-667",
+      "src/lib/client/Client.cpp:294-297"
+    ]
+  },
+  "outerFrames": [
+    {
+      "kind": "boundary-frame",
+      "producer": "PacketStreamFilter::write",
+      "size": 14,
+      "hex": "0000000a444b555012348001ffff"
+    }
+  ],
+  "harnesses": [
+    {
+      "file": "../../../../../src/test/rust-r2/DkupInterop.cpp",
+      "sha256": "9371d44c7d9847afb96ee9f7809b064bd8e4454cbf621fc02d1874c1dc8a44c6",
+      "coverage": "C++ ProtocolUtil payload and PacketStreamFilter frame generation; bidirectional C++/Rust decode and encode at unsigned u16 boundaries"
+    },
+    {
+      "file": "../../../../../src/test/rust-r2/DkupStatefulInterop.cpp",
+      "sha256": "e0b3db871506aff494064ca5f9e8ab13385cb00745daa4aa94bfd9f8e6afa14d",
+      "coverage": "real ServerProxy public-event dispatch records boundary then zero/one fields, processes trailing CROP, emits three CNOP replies, and rejects every partial DKUP length 4 through 9 with EBAD plus CLIENT_CONNECTION_FAILED and no key callback; CLIENT_DISCONNECTED is explicitly absent"
+    },
+    {
+      "file": "../../examples/dkup_interop.rs",
+      "sha256": "476819a0a5dcae62ee8cd1bc46bf02c4ce8abde21f536fa9ca76089a3b6b8571",
+      "coverage": "Rust frame decode/encode bridge with exclusive output publication"
+    }
+  ],
+  "statefulCases": [
+    "client-active: ordered callbacks are DKUP 0x1234/0x8001/0xffff then DKUP 0/0/1",
+    "client-active: DSOP activation, both DKUP messages, and trailing CROP emit three CNOP replies",
+    "client-active: nonterminal DKUP processing continues to trailing CROP",
+    "client-active: every partial DKUP payload length 4 through 9 emits EBAD, raises CLIENT_CONNECTION_FAILED, does not raise CLIENT_DISCONNECTED, and produces no key callback"
+  ],
+  "scopeExclusions": [
+    "DKRP remains outside R2.11 and requires separately gated truncation tests before migration",
+    "IPC 24801 is outside this DKUP vertical slice"
+  ],
+  "limitations": [
+    "Rust is a codec only and does not execute key or protocol-state effects",
+    "RecordingClient overrides Client::keyUp and prevents operating-system input; platform injection and physical keyboard effects are outside this protocol gate",
+    "The harness proves the CLIENT_CONNECTION_FAILED event only; transport close and CLIENT_DISCONNECTED are not claimed"
+  ]
+}

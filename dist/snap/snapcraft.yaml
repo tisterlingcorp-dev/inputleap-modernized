@@ -1,0 +1,87 @@
+name: input-leap
+base: core24
+version: master
+version-script: git describe --tags | sed "s/^v//"
+adopt-info: appstream-flathub
+grade: stable # must be 'stable' to release into candidate/stable channels
+confinement: strict # use 'strict' once you have the right plugs and slots
+icon: res/input-leap.svg
+license: GPL-2.0
+
+apps:
+  input-leap:
+    command: usr/bin/input-leap
+    extensions: [kde-neon-6]
+    desktop: usr/share/applications/input-leap.desktop
+    common-id: io.github.input_leap.input-leap
+    plugs: &plugs
+      - desktop
+      - desktop-legacy
+      - home
+      - joystick
+      - network
+      - opengl
+      - pulseaudio
+      - screen-inhibit-control
+      - unity7
+      - wayland
+      - x11
+  input-leapc:
+    command: usr/bin/input-leapc
+    plugs: *plugs
+  input-leaps:
+    command: usr/bin/input-leaps
+    plugs: *plugs
+
+parts:
+  input-leap:
+    source: .
+    source-type: git
+    plugin: cmake
+    cmake-parameters:
+      - "-DCMAKE_INSTALL_PREFIX=/usr"
+      - "-DCMAKE_BUILD_TYPE=Release"
+      - "-DINPUTLEAP_BUILD_LIBEI=AUTO"
+    build-packages:
+      - build-essential
+      - xorg-dev
+      - libcurl4-openssl-dev
+      - libavahi-compat-libdnssd-dev
+      - libssl-dev
+      - libx11-dev
+      - qt6-base-dev
+      - qt6-tools-dev
+      - qt6-tools-dev-tools
+      - libxinerama-dev
+      - libxrandr-dev
+      - libxrender-dev
+      - libxtst-dev
+      - qt6-declarative-dev
+      - libavahi-common-dev
+      - libqt6svg6-dev
+      - libei-dev
+      - libportal-dev
+    stage-packages:
+      - libxinerama1
+      - libxrandr2
+      - libxrender1
+      - libqt6gui6
+      - libqt6widgets6
+      - libqt6network6
+      - libqt6svg6
+      - libxtst6
+      - libavahi-client3
+      - libavahi-common3
+      - libavahi-compat-libdnssd1
+
+
+  fix-icon:
+    plugin: nil
+    override-build:
+      sed -i 's|Icon=input-leap|Icon=/usr/share/icons/hicolor/scalable/apps/input-leap.svg|' $SNAPCRAFT_STAGE/usr/share/applications/input-leap.desktop
+    after: [input-leap]
+
+  appstream-flathub:
+    plugin: dump
+    source: https://github.com/flathub/com.github.input-leap.input-leap.git
+    parse-info: [io.github.input_leap.input-leap.appdata.xml]

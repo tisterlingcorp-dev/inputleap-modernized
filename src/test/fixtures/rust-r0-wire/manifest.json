@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "oracle": "C++ InputLeap wire oracle",
+  "sourceRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "sourceManifest": "docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "platform": "Windows",
+  "architecture": "AMD64",
+  "compiler": "MSVC-19.44.35228.0",
+  "endianness": "little",
+  "fixtures": [
+    {
+      "name": "writef-consecutive-strings",
+      "category": "Accepted",
+      "oracle": "ProtocolUtil::writef",
+      "kind": "payload",
+      "sourceSymbol": "ProtocolUtil::writef",
+      "sha256": "f13d735382c16dc88eb0a8b2be98aef85e504da6b4765826110cb71169eb97f4",
+      "path": "writef-consecutive-strings.bin",
+      "size": 21
+    },
+    {
+      "name": "remote-hello-1-6",
+      "category": "Accepted",
+      "oracle": "ProtocolUtil::writef + PacketStreamFilter::write framing",
+      "kind": "remote-frame",
+      "sourceSymbol": "kMsgHello; ProtocolUtil::writef; PacketStreamFilter::write",
+      "sha256": "ac3a65a3589ff7f339f727a87fa84c6f8713b98158a499b5787e26ed69592cc2",
+      "path": "remote-hello-1-6.bin",
+      "size": 15
+    },
+    {
+      "name": "remote-hello-back-1-7",
+      "category": "UnsupportedVersion",
+      "oracle": "ProtocolUtil::writef + PacketStreamFilter::write framing",
+      "kind": "remote-frame",
+      "sourceSymbol": "kMsgHelloBack; ProtocolUtil::writef; PacketStreamFilter::write",
+      "sha256": "ca07c6ca83c2556398ce9afe096167f884f6d44633af854ea54aaba56debfc02",
+      "path": "remote-hello-back-1-7.bin",
+      "size": 29
+    },
+    {
+      "name": "remote-truncated-prefix",
+      "category": "NeedMore",
+      "oracle": "PacketStreamFilter wire contract",
+      "kind": "remote-frame",
+      "sourceSymbol": "PacketStreamFilter::readPacketSize",
+      "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+      "path": "remote-truncated-prefix.bin",
+      "size": 3
+    },
+    {
+      "name": "remote-oversized-length",
+      "category": "Oversized",
+      "oracle": "PacketStreamFilter wire contract",
+      "kind": "remote-frame",
+      "sourceSymbol": "PacketStreamFilter::readPacketSize",
+      "sha256": "3b6042b0e6b0b5632ba6d918b08c929cc49cdec5713e4f540c3d171fd2b89347",
+      "path": "remote-oversized-length.bin",
+      "size": 4
+    },
+    {
+      "name": "remote-unknown-code",
+      "category": "Malformed",
+      "oracle": "PacketStreamFilter framing + protocol message-code contract",
+      "kind": "remote-frame",
+      "sourceSymbol": "PacketStreamFilter::write; message dispatch",
+      "sha256": "8496d561569561ba87aa1bd4839216132acb23d5b8d56ed654e8a37171cd0776",
+      "path": "remote-unknown-code.bin",
+      "size": 8
+    },
+    {
+      "name": "ipc-ihel-gui",
+      "category": "Accepted",
+      "oracle": "ProtocolUtil::writef + IPC constants",
+      "kind": "ipc-stream",
+      "sourceSymbol": "kIpcMsgHello; ProtocolUtil::writef; IpcFrameReader",
+      "sha256": "f1e101538aeaae426dfe9cae3207f2408b9c9fe8044da57483439529d58d8e76",
+      "path": "ipc-ihel-gui.bin",
+      "size": 5
+    },
+    {
+      "name": "ipc-ihel-missing-type",
+      "category": "NeedMore",
+      "oracle": "IPC message-code contract",
+      "kind": "ipc-stream",
+      "sourceSymbol": "kIpcMsgHello; IpcFrameReader",
+      "sha256": "71ea1bddb69cac69704f9b1942581f52625fe16622f0ee4341f3924d6866b8c8",
+      "path": "ipc-ihel-missing-type.bin",
+      "size": 4
+    },
+    {
+      "name": "ipc-unknown-code",
+      "category": "Malformed",
+      "oracle": "IPC message-code contract",
+      "kind": "ipc-stream",
+      "sourceSymbol": "IpcFrameReader",
+      "sha256": "967411641f205748bbbd223a23d4e06b6e609648102da0d886a709108a499889",
+      "path": "ipc-unknown-code.bin",
+      "size": 4
+    },
+    {
+      "name": "ipc-ilog-oversized-string",
+      "category": "Oversized",
+      "oracle": "IPC constants + ProtocolUtil string-length contract",
+      "kind": "ipc-stream",
+      "sourceSymbol": "kIpcMsgLogLine; IpcFrameReader",
+      "sha256": "d9c1b8019a0fec511ca7d4e6cdee47d04da54855aba2951fc79858a92c9e4af5",
+      "path": "ipc-ilog-oversized-string.bin",
+      "size": 8
+    }
+  ]
+}

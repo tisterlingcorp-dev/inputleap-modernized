@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2-legacy-protocol-differential-fixtures",
+  "sourceRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "fixtures": [
+    {
+      "name": "remote-zero-length",
+      "path": "remote-zero-length.bin",
+      "size": 4,
+      "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+      "wire": "u32 big-endian zero-length prefix",
+      "oracleSource": "src/lib/inputleap/PacketStreamFilter.cpp",
+      "oracleBehavior": "prefix consumed; m_size remains zero; no ready frame; no format error",
+      "rustOutcome": "SkippedEmpty"
+    },
+    {
+      "name": "remote-cnop-payload",
+      "path": "remote-cnop-payload.bin",
+      "size": 4,
+      "sha256": "cd15d451f10aaf5908b28eee022d128ae9725c9534a7754768e4730dba81f7c1",
+      "wire": "payload-only ProtocolUtil::writef(kMsgCNoop); outer framing intentionally excluded",
+      "oracleSource": "src/lib/inputleap/protocol_types.cpp; src/lib/inputleap/ProtocolUtil.cpp",
+      "oracleSymbol": "kMsgCNoop; ProtocolUtil::writef",
+      "oracleEmitter": "src/test/rust-r2/CnopInterop.cpp emit",
+      "oracleCommand": ".hermes/scripts/rust-r2-cnop-interop.bat fixture out/build/windows-msvc-tests/rust-r2-cnop-interop/cnop-candidate.bin",
+      "interopScope": "payload bytes only; stateful behavior is covered by the dispatch matrix below",
+      "stateOracleSources": [
+        "src/lib/client/ServerProxy.cpp::parseHandshakeMessage/parseMessage",
+        "src/lib/server/ClientProxyUnknown.cpp::handle_data",
+        "src/lib/server/ClientProxy1_6.cpp::parseHandshakeMessage/parseMessage"
+      ],
+      "decodeAcceptedContexts": [
+        "server-to-client/client-handshake",
+        "server-to-client/active",
+        "client-to-server/server-awaiting-info",
+        "client-to-server/active"
+      ],
+      "decodeRejectedContext": "client-to-server/server-awaiting-hello-back",
+      "encodeObservedContext": "client-to-server/active",
+      "rustOutcome": "RemoteMessage::Noop"
+    }
+  ]
+}

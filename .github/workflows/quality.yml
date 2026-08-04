@@ -1,0 +1,77 @@
+name: Quality
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  sanitizers:
+    name: ASan and UBSan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build cmake pkg-config xvfb \
+            libavahi-compat-libdnssd-dev libssl-dev \
+            libice-dev libsm-dev libpng-dev \
+            libx11-dev libxext-dev libxi-dev libxinerama-dev \
+            libxrandr-dev libxrender-dev libxtst-dev libxkbcommon-dev \
+            qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+
+      - name: Configure
+        run: cmake --preset asan
+
+      - name: Build
+        run: cmake --build --preset asan --parallel
+
+      - name: Test
+        env:
+          # Legacy network integration fixtures still retain connection objects
+          # at process exit. ASan/UBSan remain strict; LSan gets a separate
+          # cleanup phase instead of blocking this first quality gate.
+          ASAN_OPTIONS: detect_leaks=0:strict_string_checks=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: xvfb-run -a ctest --preset asan
+
+  clang-tidy:
+    name: clang-tidy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build cmake pkg-config clang-tidy \
+            libavahi-compat-libdnssd-dev libssl-dev \
+            libice-dev libsm-dev libpng-dev \
+            libx11-dev libxext-dev libxi-dev libxinerama-dev \
+            libxrandr-dev libxrender-dev libxtst-dev libxkbcommon-dev \
+            qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+
+      - name: Configure
+        run: cmake --preset clang-tidy
+
+      - name: Analyze while building
+        run: cmake --build --preset clang-tidy --parallel

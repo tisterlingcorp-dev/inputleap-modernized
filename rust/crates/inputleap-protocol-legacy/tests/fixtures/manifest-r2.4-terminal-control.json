@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.4-terminal-control-differential-fixtures",
+  "tranche": "R2.4",
+  "sourceRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "5fa4a674551f72f378d9bb3939dd8668af84cca06eae55577b502b16efe94a73",
+  "interopScope": "payload bytes only",
+  "statefulCoverage": "none",
+  "terminalityScope": "Rust caller policy metadata only",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "unknowns": [
+    "EBAD client-to-server has a productive send-site, but the exact receiver state is UNKNOWN and client-to-server encode is not authorized",
+    "No C++ disconnect or terminal state transition is executed by this payload-byte interop harness"
+  ],
+  "fixtures": [
+    {
+      "message": "CBYE",
+      "file": "remote-cbye-payload.bin",
+      "size": 4,
+      "sha256": "030ed1eac90aa12abee471287cf6a8d91e3cf3ec04918966b01f763b5d641140",
+      "cppSymbol": "kMsgCClose",
+      "sourceRefs": [
+        "src/lib/inputleap/protocol_types.cpp:26",
+        "src/lib/client/ServerProxy.cpp:182-186",
+        "src/lib/client/ServerProxy.cpp:309-313",
+        "src/lib/server/ClientProxy.cpp:33-38",
+        "src/lib/server/Server.cpp:2065-2083"
+      ],
+      "decodeContexts": [
+        "server-to-client/client-handshake",
+        "server-to-client/active"
+      ],
+      "encodeObservedContexts": [],
+      "encodePolicy": "fail-closed: ClientProxy::close(msg) ignores msg and flushes without serializing CBYE",
+      "terminal": true
+    },
+    {
+      "message": "EBSY",
+      "file": "remote-ebsy-payload.bin",
+      "size": 4,
+      "sha256": "cc3554239224d26f93199cf6d7a5122995eaccb08535ccd690471a9203cd1ed8",
+      "cppSymbol": "kMsgEBusy",
+      "sourceRefs": [
+        "src/lib/inputleap/protocol_types.cpp:53",
+        "src/lib/client/ServerProxy.cpp:198-202",
+        "src/lib/server/ClientProxy.cpp:33-38",
+        "src/lib/server/Server.cpp:2065-2083"
+      ],
+      "decodeContexts": [
+        "server-to-client/client-handshake"
+      ],
+      "encodeObservedContexts": [],
+      "encodePolicy": "fail-closed: ClientProxy::close(msg) ignores msg and flushes without serializing EBSY",
+      "terminal": true
+    },
+    {
+      "message": "EUNK",
+      "file": "remote-eunk-payload.bin",
+      "size": 4,
+      "sha256": "209e1ac361f0099bcf0b53cf046a1e2842806a4efd58797a2039267cbe826c5e",
+      "cppSymbol": "kMsgEUnknown",
+      "sourceRefs": [
+        "src/lib/inputleap/protocol_types.cpp:54",
+        "src/lib/client/ServerProxy.cpp:204-208",
+        "src/lib/server/ClientProxy.cpp:33-38",
+        "src/lib/server/Server.cpp:2065-2083"
+      ],
+      "decodeContexts": [
+        "server-to-client/client-handshake"
+      ],
+      "encodeObservedContexts": [],
+      "encodePolicy": "fail-closed: ClientProxy::close(msg) ignores msg and flushes without serializing EUNK",
+      "terminal": true
+    },
+    {
+      "message": "EBAD",
+      "file": "remote-ebad-payload.bin",
+      "size": 4,
+      "sha256": "d9c97391b509a1b7277048208960565bcc2fd02f80da79270142033d87830d68",
+      "cppSymbol": "kMsgEBad",
+      "sourceRefs": [
+        "src/lib/inputleap/protocol_types.cpp:55",
+        "src/lib/client/ServerProxy.cpp:133-140",
+        "src/lib/client/ServerProxy.cpp:210-214",
+        "src/lib/client/ServerProxy.cpp:315-318",
+        "src/lib/server/ClientProxyUnknown.cpp:145-161",
+        "src/lib/server/ClientProxyUnknown.cpp:211-215"
+      ],
+      "decodeContexts": [
+        "server-to-client/client-handshake",
+        "server-to-client/active"
+      ],
+      "encodeObservedContexts": [
+        "server-to-client/client-handshake"
+      ],
+      "encodePolicy": "client-to-server receiver state is UNKNOWN and remains fail-closed; active decode does not authorize active encode",
+      "terminal": true
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+[package]
+name = "inputleap-protocol-legacy"
+version = "0.1.0"
+description = "Fail-closed parser for the legacy Input Leap remote protocol"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true

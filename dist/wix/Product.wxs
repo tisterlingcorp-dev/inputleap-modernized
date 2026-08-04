@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <?include Include.wxi?>
+  <Product Id="*" Language="1046" Manufacturer="$(var.Author)"
+           Name="$(var.Name) ($(var.PlatformSimpleName))"
+           UpgradeCode="$(var.UpgradeGuid)" Version="$(var.Version)">
+    <Package Compressed="yes" InstallScope="perMachine" InstallerVersion="500"/>
+    <MajorUpgrade DowngradeErrorMessage="Uma versão mais recente do $(var.Name) já está instalada."
+                  Schedule="afterInstallInitialize"/>
+    <MediaTemplate EmbedCab="yes"/>
+    <UIRef Id="WixUI_InstallDir"/>
+    <Feature Id="ProductFeature" Title="$(var.Name)" Level="1">
+      <ComponentGroupRef Id="ProductComponents"/>
+      <ComponentGroupRef Id="QtRuntimeComponents"/>
+      <ComponentGroupRef Id="QtPluginComponents"/>
+    </Feature>
+    <Icon Id="InputLeap.ico" SourceFile="$(var.ResPath)/input-leap.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="InputLeap.ico"/>
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER"/>
+    <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable"/>
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ResPath)/License.rtf"/>
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.ResPath)/banner.bmp"/>
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.ResPath)/dialog.bmp"/>
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="$(var.Name)">
+          <Directory Id="IconEnginesDir" Name="iconengines"/>
+          <Directory Id="ImageFormatsDir" Name="imageformats"/>
+          <Directory Id="NetworkInformationDir" Name="networkinformation"/>
+          <Directory Id="PlatformsDir" Name="platforms"/>
+          <Directory Id="StylesDir" Name="styles"/>
+          <Directory Id="TlsDir" Name="tls"/>
+          <Directory Id="TranslationsDir" Name="translations"/>
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder"/>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="Daemon" Guid="EC9AD3B0-277C-4157-B5C8-5FD5B6A5F4AD" Win64="yes">
+        <File Id="DaemonProgram" KeyPath="yes" Source="$(var.BinPath)/input-leapd.exe"/>
+        <ServiceInstall Id="ServiceInstall" Name="InputLeap" DisplayName="$(var.Name)"
+                        Description="Controla os processos do $(var.Name)."
+                        ErrorControl="normal" Start="auto" Type="ownProcess">
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="restart"
+                              ResetPeriodInDays="1" RestartServiceDelayInSeconds="1"/>
+        </ServiceInstall>
+        <ServiceControl Id="ServiceControl" Name="InputLeap" Remove="uninstall"
+                        Start="install" Stop="both" Wait="yes"/>
+      </Component>
+      <Component Id="CorePrograms" Guid="7F719BC8-A730-4D2A-B80C-2EAB5B597B45" Win64="yes">
+        <File Id="ServerProgram" KeyPath="yes" Source="$(var.BinPath)/input-leaps.exe">
+          <fire:FirewallException Id="ServerFirewallException" Name="$(var.Name) — servidor"
+                                  Scope="any" IgnoreFailure="no"/>
+        </File>
+        <File Id="ClientProgram" Source="$(var.BinPath)/input-leapc.exe"/>
+      </Component>
+      <Component Id="GuiPrograms" Guid="BAC8149B-6287-45BF-9C27-43D71ED40214" Win64="yes">
+        <File Id="GuiProgram" KeyPath="yes" Source="$(var.BinPath)/input-leap.exe">
+          <Shortcut Id="GuiShortcut" Directory="ProgramMenuFolder" Name="$(var.Name)"
+                    Icon="InputLeap.ico" Advertise="yes"/>
+          <fire:FirewallException Id="GuiFirewallException" Name="$(var.Name) — interface"
+                                  Scope="any" IgnoreFailure="no"/>
+        </File>
+        <File Id="FirewallHelperProgram" Source="$(var.BinPath)/input-leap-firewall-helper.exe"/>
+        <File Id="UpdateHelperProgram" Source="$(var.BinPath)/inputleap-update-helper.exe"/>
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="QtRuntimeComponents" Directory="INSTALLFOLDER">
+      <Component Id="QtRuntime" Guid="D662508B-98DB-419F-9E92-A941E1B00BE2" Win64="yes">
+        <File Id="QtCore" KeyPath="yes" Source="$(var.QtDeployPath)/Qt6Core.dll"/>
+        <File Id="QtGui" Source="$(var.QtDeployPath)/Qt6Gui.dll"/>
+        <File Id="QtNetwork" Source="$(var.QtDeployPath)/Qt6Network.dll"/>
+        <File Id="QtSvg" Source="$(var.QtDeployPath)/Qt6Svg.dll"/>
+        <File Id="QtWidgets" Source="$(var.QtDeployPath)/Qt6Widgets.dll"/>
+        <File Id="OpenGlSoftware" Source="$(var.QtDeployPath)/opengl32sw.dll"/>
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="QtPluginComponents">
+      <Component Id="QtIconEngine" Directory="IconEnginesDir" Guid="B8DC2FE2-1A07-47AE-9FA9-41EF2DF91C2B" Win64="yes">
+        <File Id="QtSvgIcon" KeyPath="yes" Source="$(var.QtDeployPath)/iconengines/qsvgicon.dll"/>
+      </Component>
+      <Component Id="QtImageFormats" Directory="ImageFormatsDir" Guid="951A5707-E0B0-43EA-B62B-22A82C2E07AD" Win64="yes">
+        <File Id="QtGif" KeyPath="yes" Source="$(var.QtDeployPath)/imageformats/qgif.dll"/>
+        <File Id="QtIco" Source="$(var.QtDeployPath)/imageformats/qico.dll"/>
+        <File Id="QtJpeg" Source="$(var.QtDeployPath)/imageformats/qjpeg.dll"/>
+        <File Id="QtSvgImage" Source="$(var.QtDeployPath)/imageformats/qsvg.dll"/>
+      </Component>
+      <Component Id="QtNetworkInformation" Directory="NetworkInformationDir" Guid="06AB0388-78F9-4A14-A8F5-7E3EED613A0F" Win64="yes">
+        <File Id="QtNetworkListManager" KeyPath="yes" Source="$(var.QtDeployPath)/networkinformation/qnetworklistmanager.dll"/>
+      </Component>
+      <Component Id="QtPlatform" Directory="PlatformsDir" Guid="684EFA14-856B-440E-A5E6-E90E04E36B41" Win64="yes">
+        <File Id="QtWindowsPlatform" KeyPath="yes" Source="$(var.QtDeployPath)/platforms/qwindows.dll"/>
+      </Component>
+      <Component Id="QtStyle" Directory="StylesDir" Guid="E06655D1-5317-489C-B818-C58E75B82581" Win64="yes">
+        <File Id="QtWindowsVistaStyle" KeyPath="yes" Source="$(var.QtDeployPath)/styles/qwindowsvistastyle.dll"/>
+      </Component>
+      <Component Id="QtTls" Directory="TlsDir" Guid="C5B91444-0E2D-4DBF-8062-1DB71BB3C313" Win64="yes">
+        <File Id="QtCertOnlyBackend" KeyPath="yes" Source="$(var.QtDeployPath)/tls/qcertonlybackend.dll"/>
+        <File Id="QtOpenSslBackend" Source="$(var.QtDeployPath)/tls/qopensslbackend.dll"/>
+        <File Id="QtSchannelBackend" Source="$(var.QtDeployPath)/tls/qschannelbackend.dll"/>
+      </Component>
+      <Component Id="QtPtBrTranslation" Directory="TranslationsDir" Guid="58289BA3-48BB-4861-A2B5-6AFDC2AF962D" Win64="yes">
+        <File Id="QtPtBr" KeyPath="yes" Source="$(var.QtDeployPath)/translations/qt_pt_BR.qm"/>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

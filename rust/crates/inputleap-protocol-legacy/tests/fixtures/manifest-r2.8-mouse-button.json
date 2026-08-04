@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.8-mouse-button-differential-fixtures",
+  "tranche": "R2.8",
+  "sourceRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "91c0e8ed46f8c164338fbc415f50a4a37a9e24a4940fe2908494ad4fc1256068",
+  "interopScope": "payload bytes and PacketStreamFilter outer framing",
+  "rustStatefulCoverage": "none",
+  "cppStatefulCoverage": "real ServerProxy active dispatch via public STREAM_INPUT_READY event API into RecordingClient mouseDown/mouseUp overrides; typed DSOP activation and truncated DMDN/DMUP fail-closed cases avoid varargs and uninitialized callback behavior",
+  "valueSemantics": "ButtonID is u8; the C++ reader reads int8_t and casts to ButtonID, preserving all one-byte bit patterns; the writer API accepts ButtonID without range validation",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixtures": [
+    {
+      "kind": "down",
+      "file": "remote-dmdn-button1-payload.bin",
+      "button": 1,
+      "size": 5,
+      "sha256": "7347d35fc518118f3d663e1318dc11fc0fd3f8feb2b1ee4a1662c84b93642b3c"
+    },
+    {
+      "kind": "up",
+      "file": "remote-dmup-button1-payload.bin",
+      "button": 1,
+      "size": 5,
+      "sha256": "014786569d7cdd0342ca1eea6174a461d0bc15e22b6d4922bdb911ef57a8a44b"
+    }
+  ],
+  "contract": {
+    "messages": ["DMDN", "DMUP"],
+    "formats": ["DMDN%1i", "DMUP%1i"],
+    "cppSymbols": ["kMsgDMouseDown", "kMsgDMouseUp"],
+    "fieldTypes": ["button:u8"],
+    "decodeContexts": ["server-to-client/active"],
+    "decodeStructuralValues": "all u8 bit patterns",
+    "encodeObservedContexts": ["server-to-client/active"],
+    "encodeWriterDomain": "all ButtonID/u8 bit patterns",
+    "rejectedContexts": [
+      "server-to-client/client-handshake",
+      "server-to-client/server-awaiting-hello-back",
+      "server-to-client/server-awaiting-info",
+      "client-to-server/client-handshake",
+      "client-to-server/server-awaiting-hello-back",
+      "client-to-server/server-awaiting-info",
+      "client-to-server/active"
+    ],
+    "boundary": 5,
+    "terminal": false,
+    "sourceRefs": [
+      "src/lib/inputleap/protocol_types.cpp:40-41",
+      "src/lib/inputleap/mouse_types.h:23-44",
+      "src/lib/inputleap/ProtocolUtil.cpp:33-192,194-254,256-310",
+      "src/lib/inputleap/PacketStreamFilter.cpp:87-99",
+      "src/lib/server/Server.cpp:130-133,1231-1260,1615-1652",
+      "src/lib/server/ClientProxy1_6.cpp:354-361",
+      "src/lib/server/IClientConnection.h:46-49",
+      "src/lib/server/ClientConnectionLoggingWrapper.cpp:91-101",
+      "src/lib/server/ClientConnectionByStream.cpp:70-77",
+      "src/lib/client/ServerProxy.cpp:222-250,665-697",
+      "src/lib/client/Client.cpp:299-308",
+      "src/lib/inputleap/Screen.cpp:208-217"
+    ]
+  },
+  "outerFrames": [
+    {
+      "kind": "down",
+      "producer": "PacketStreamFilter::write",
+      "size": 9,
+      "hex": "00000005444d444e01"
+    },
+    {
+      "kind": "up",
+      "producer": "PacketStreamFilter::write",
+      "size": 9,
+      "hex": "00000005444d555001"
+    }
+  ],
+  "harnesses": [
+    {
+      "file": "../../../../../src/test/rust-r2/MouseButtonInterop.cpp",
+      "sha256": "f5042bef5af9e1a2969641320ab3442c5fb9d57595cf423f3b8df0ad603026d4",
+      "coverage": "ProtocolUtil writer payload bytes and PacketStreamFilter outer frames for DMDN/DMUP and all decimal u8 values; decode is raw byte equality only"
+    },
+    {
+      "file": "../../../../../src/test/rust-r2/MouseButtonStatefulInterop.cpp",
+      "sha256": "f8dbaa2605a0ce5d3e22d89aeee5576048ea9b8bcb3af06e67ba7d4d0a003813",
+      "coverage": "real ServerProxy public-event dispatch uses typed DSOP activation, preserves ordered DMDN/DMUP callbacks for 1 and 255, emits five CNOP replies, continues to trailing CROP, and rejects four-byte DMDN/DMUP with EBAD plus connection failure and no callback or OS input"
+    }
+  ],
+  "statefulCases": [
+    "client-active: ordered public STREAM_INPUT_READY callbacks are DMDN 1, DMUP 1, DMDN 255, DMUP 255",
+    "client-active: each normal message including trailing CROP emits one CNOP reply",
+    "client-active: nonterminal mouse-button processing continues to trailing CROP",
+    "client-active: accepted messages do not close or emit CLIENT_CONNECTION_FAILED or CLIENT_DISCONNECTED",
+    "client-active: four-byte DMDN and DMUP emit EBAD, fail the connection, and produce no mouse callback"
+  ],
+  "limitations": [
+    "Rust is a codec only and does not execute mouse or protocol-state effects",
+    "RecordingClient prevents operating-system input; platform injection behavior, validity of undefined button IDs, and physical pointer effects are outside this protocol gate"
+  ]
+}

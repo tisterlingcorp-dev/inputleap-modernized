@@ -1,0 +1,158 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.3-fixed-control-differential-fixtures",
+  "tranche": "R2.3",
+  "sourceRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "c5fe7f1fe3ca5f2573321ccfb647831e0ead7b7db2b87041172cf5412d67b891",
+  "interopScope": "payload bytes only; receiver-state matrices are Rust policy tests derived by static inspection of the cited C++ dispatches; no C++ state machine transitions are executed",
+  "statefulCoverage": "none; no C++ state machine transitions are executed",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixtures": [
+    {
+      "name": "remote-qinf-payload",
+      "path": "remote-qinf-payload.bin",
+      "size": 4,
+      "sha256": "ba335cc1b20380b4b28a08099a22377a0aba48f45f2fef4004fd07220beffc30",
+      "wire": "payload-only ProtocolUtil::writef(kMsgQInfo); outer framing intentionally excluded",
+      "oracleSource": "src/lib/inputleap/protocol_types.cpp; src/lib/inputleap/ProtocolUtil.cpp",
+      "oracleSymbol": "kMsgQInfo; ProtocolUtil::writef",
+      "oracleEmitter": "src/test/rust-r2/FixedControlInterop.cpp fixture QINF",
+      "oracleCommand": ".hermes/scripts/rust-r2-fixed-control-interop.bat fixture QINF out/build/windows-msvc-tests/rust-r2-fixed-control-interop/qinf-candidate.bin",
+      "interopScope": "payload bytes only",
+      "stateOracleSources": [
+        "src/lib/client/ServerProxy.cpp::parseHandshakeMessage/parseMessage",
+        "src/lib/server/ClientProxy1_6.cpp::ClientProxy1_6",
+        "src/lib/server/ClientConnectionByStream.cpp::send_query_info_1_6"
+      ],
+      "decodeAcceptedContexts": [
+        "server-to-client/client-handshake",
+        "server-to-client/active"
+      ],
+      "decodeRejectedContexts": [
+        "client-to-server/client-handshake",
+        "client-to-server/server-awaiting-hello-back",
+        "client-to-server/server-awaiting-info",
+        "client-to-server/active",
+        "server-to-client/server-awaiting-hello-back",
+        "server-to-client/server-awaiting-info"
+      ],
+      "encodeObservedContexts": [
+        "server-to-client/client-handshake"
+      ],
+      "decodeOnlyContexts": [
+        "server-to-client/active"
+      ],
+      "rustOutcome": "RemoteMessage::QueryInfo"
+    },
+    {
+      "name": "remote-ciak-payload",
+      "path": "remote-ciak-payload.bin",
+      "size": 4,
+      "sha256": "8bef7bf78a2b0e03b414940e3884970d76e7b349a8381f4890b99d2d44bda772",
+      "wire": "payload-only ProtocolUtil::writef(kMsgCInfoAck); outer framing intentionally excluded",
+      "oracleSource": "src/lib/inputleap/protocol_types.cpp; src/lib/inputleap/ProtocolUtil.cpp",
+      "oracleSymbol": "kMsgCInfoAck; ProtocolUtil::writef",
+      "oracleEmitter": "src/test/rust-r2/FixedControlInterop.cpp fixture CIAK",
+      "oracleCommand": ".hermes/scripts/rust-r2-fixed-control-interop.bat fixture CIAK out/build/windows-msvc-tests/rust-r2-fixed-control-interop/ciak-candidate.bin",
+      "interopScope": "payload bytes only",
+      "stateOracleSources": [
+        "src/lib/client/ServerProxy.cpp::parseHandshakeMessage/parseMessage",
+        "src/lib/server/ClientProxy1_6.cpp::parseHandshakeMessage/parseMessage/recvInfo",
+        "src/lib/server/ClientConnectionByStream.cpp::send_info_ack_1_6"
+      ],
+      "decodeAcceptedContexts": [
+        "server-to-client/client-handshake",
+        "server-to-client/active"
+      ],
+      "decodeRejectedContexts": [
+        "client-to-server/client-handshake",
+        "client-to-server/server-awaiting-hello-back",
+        "client-to-server/server-awaiting-info",
+        "client-to-server/active",
+        "server-to-client/server-awaiting-hello-back",
+        "server-to-client/server-awaiting-info"
+      ],
+      "encodeObservedContexts": [
+        "server-to-client/client-handshake",
+        "server-to-client/active"
+      ],
+      "decodeOnlyContexts": [],
+      "rustOutcome": "RemoteMessage::InfoAck"
+    },
+    {
+      "name": "remote-crop-payload",
+      "path": "remote-crop-payload.bin",
+      "size": 4,
+      "sha256": "59fdcb566984d20224087f09a099c066b73dec7803cfe98209b3dc50e9705d1a",
+      "wire": "payload-only ProtocolUtil::writef(kMsgCResetOptions); outer framing intentionally excluded",
+      "oracleSource": "src/lib/inputleap/protocol_types.cpp; src/lib/inputleap/ProtocolUtil.cpp",
+      "oracleSymbol": "kMsgCResetOptions; ProtocolUtil::writef",
+      "oracleEmitter": "src/test/rust-r2/FixedControlInterop.cpp fixture CROP",
+      "oracleCommand": ".hermes/scripts/rust-r2-fixed-control-interop.bat fixture CROP out/build/windows-msvc-tests/rust-r2-fixed-control-interop/crop-candidate.bin",
+      "interopScope": "payload bytes only",
+      "stateOracleSources": [
+        "src/lib/client/ServerProxy.cpp::parseHandshakeMessage/parseMessage",
+        "src/lib/server/Server.cpp::adoptClient/setConfig/sendOptions",
+        "src/lib/server/ClientProxy1_6.cpp::resetOptions",
+        "src/lib/server/ClientConnectionByStream.cpp::send_reset_options_1_6"
+      ],
+      "decodeAcceptedContexts": [
+        "server-to-client/client-handshake",
+        "server-to-client/active"
+      ],
+      "decodeRejectedContexts": [
+        "client-to-server/client-handshake",
+        "client-to-server/server-awaiting-hello-back",
+        "client-to-server/server-awaiting-info",
+        "client-to-server/active",
+        "server-to-client/server-awaiting-hello-back",
+        "server-to-client/server-awaiting-info"
+      ],
+      "encodeObservedContexts": [
+        "server-to-client/client-handshake",
+        "server-to-client/active"
+      ],
+      "decodeOnlyContexts": [],
+      "rustOutcome": "RemoteMessage::ResetOptions"
+    },
+    {
+      "name": "remote-cout-payload",
+      "path": "remote-cout-payload.bin",
+      "size": 4,
+      "sha256": "ed7f3445a8dcf8bc63bb6b04194536ab4374e06d4f15147551b42e4495460191",
+      "wire": "payload-only ProtocolUtil::writef(kMsgCLeave); outer framing intentionally excluded",
+      "oracleSource": "src/lib/inputleap/protocol_types.cpp; src/lib/inputleap/ProtocolUtil.cpp",
+      "oracleSymbol": "kMsgCLeave; ProtocolUtil::writef",
+      "oracleEmitter": "src/test/rust-r2/FixedControlInterop.cpp fixture COUT",
+      "oracleCommand": ".hermes/scripts/rust-r2-fixed-control-interop.bat fixture COUT out/build/windows-msvc-tests/rust-r2-fixed-control-interop/cout-candidate.bin",
+      "interopScope": "payload bytes only",
+      "stateOracleSources": [
+        "src/lib/client/ServerProxy.cpp::parseHandshakeMessage/parseMessage",
+        "src/lib/server/Server.cpp::switchScreen",
+        "src/lib/server/ClientProxy1_6.cpp::leave",
+        "src/lib/server/ClientConnectionByStream.cpp::send_leave_1_6"
+      ],
+      "decodeAcceptedContexts": [
+        "server-to-client/active"
+      ],
+      "decodeRejectedContexts": [
+        "client-to-server/client-handshake",
+        "client-to-server/server-awaiting-hello-back",
+        "client-to-server/server-awaiting-info",
+        "client-to-server/active",
+        "server-to-client/client-handshake",
+        "server-to-client/server-awaiting-hello-back",
+        "server-to-client/server-awaiting-info"
+      ],
+      "encodeObservedContexts": [
+        "server-to-client/active"
+      ],
+      "decodeOnlyContexts": [],
+      "rustOutcome": "RemoteMessage::Leave"
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.9-dmmv-differential-fixtures",
+  "tranche": "R2.9",
+  "sourceRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "824c23e273a510830e9fb2e5f0be9ea968b837dc575ca36661dbfb4be8c521ef",
+  "interopScope": "DMMV payload bytes through PacketStreamFilter outer framing",
+  "rustStatefulCoverage": "none",
+  "cppStatefulCoverage": "real ServerProxy active dispatch via public STREAM_INPUT_READY event API into RecordingClient mouseMove override; truncated DMMV fails closed before any callback",
+  "valueSemantics": "DMMV carries two signed i16 coordinates; C++ ProtocolUtil and Rust preserve all 16-bit patterns byte-identically",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixtures": [
+    {
+      "kind": "min-max-frame",
+      "file": "remote-dmmv-min-max-frame.bin",
+      "x": -32768,
+      "y": 32767,
+      "size": 12,
+      "sha256": "4a91f0ce941b70135bdef44375ffe3d428f9dfc87d00a14d34d72baaaa306f96"
+    }
+  ],
+  "contract": {
+    "messages": [
+      "DMMV"
+    ],
+    "formats": [
+      "DMMV%2i%2i"
+    ],
+    "cppSymbols": [
+      "kMsgDMouseMove"
+    ],
+    "fieldTypes": [
+      "x:i16",
+      "y:i16"
+    ],
+    "decodeContexts": [
+      "server-to-client/active"
+    ],
+    "decodeStructuralValues": "all signed i16 coordinate pairs",
+    "encodeObservedContexts": [
+      "server-to-client/active"
+    ],
+    "encodeWriterDomain": "all signed i16 coordinate pairs",
+    "rejectedContexts": [
+      "server-to-client/client-handshake",
+      "server-to-client/server-awaiting-hello-back",
+      "server-to-client/server-awaiting-info",
+      "client-to-server/client-handshake",
+      "client-to-server/server-awaiting-hello-back",
+      "client-to-server/server-awaiting-info",
+      "client-to-server/active"
+    ],
+    "boundary": 8,
+    "terminal": false,
+    "sourceRefs": [
+      "src/lib/inputleap/protocol_types.cpp:42",
+      "src/lib/inputleap/ProtocolUtil.h:41-89,100-107",
+      "src/lib/inputleap/ProtocolUtil.cpp:33-192,194-254,256-310,454-497",
+      "src/lib/io/StreamFilter.cpp:24-31,90-99",
+      "src/lib/inputleap/PacketStreamFilter.cpp:87-99,129-147,151-177",
+      "src/lib/server/Server.cpp:476,1041,1655-1669,1970",
+      "src/lib/server/ClientProxy1_6.cpp:364-367",
+      "src/lib/server/ClientConnectionByStream.cpp:80-83",
+      "src/lib/client/ServerProxy.cpp:224-226,700-713",
+      "src/lib/client/Client.cpp:311-314",
+      "src/lib/inputleap/Screen.cpp:220-223"
+    ]
+  },
+  "outerFrames": [
+    {
+      "kind": "min-max-frame",
+      "producer": "PacketStreamFilter::write",
+      "size": 12,
+      "hex": "00000008444d4d5680007fff"
+    }
+  ],
+  "harnesses": [
+    {
+      "file": "../../../../../src/test/rust-r2/DmmvInterop.cpp",
+      "sha256": "832d5ed9f00761159b7effc83db00d506e21f4ba25762591c51aebcda04e1fbc",
+      "coverage": "C++ ProtocolUtil payload and PacketStreamFilter frame generation; bidirectional C++/Rust decode and encode at signed i16 boundaries"
+    },
+    {
+      "file": "../../../../../src/test/rust-r2/DmmvStatefulInterop.cpp",
+      "sha256": "3ac0b3c075bdc7878b53981a483480278369866676ce5dc7058a58e8072f3e3b",
+      "coverage": "real ServerProxy public-event dispatch records MIN/MAX then -1/0, processes trailing CROP, emits three CNOP replies, and rejects four-byte DMMV with EBAD plus connection failure and no callback"
+    },
+    {
+      "file": "../../examples/dmmv_interop.rs",
+      "sha256": "bda34de062f45bab8f3c6a4482b90b177bfb33ffe29a3be2a2a157f49c30bd01",
+      "coverage": "Rust frame decode/encode bridge with exclusive output publication"
+    }
+  ],
+  "statefulCases": [
+    "client-active: ordered callbacks are DMMV -32768/32767 then DMMV -1/0",
+    "client-active: DSOP activation, both DMMV messages, and trailing CROP emit three CNOP replies",
+    "client-active: nonterminal DMMV processing continues to trailing CROP",
+    "client-active: four-byte DMMV emits EBAD, fails the connection, and produces no mouse callback"
+  ],
+  "scopeExclusions": [
+    "DKDN is excluded from R2.9 and reserved for a separately gated future tranche",
+    "IPC 24801 is outside this DMMV vertical slice"
+  ],
+  "limitations": [
+    "Rust is a codec only and does not execute mouse or protocol-state effects",
+    "RecordingClient prevents operating-system input; platform injection and physical pointer effects are outside this protocol gate"
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.5-keepalive-differential-fixtures",
+  "tranche": "R2.5",
+  "sourceRevision": "ffad9334acfba9b9bb2ea8ba3645cb0c05c94f11",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "0ad0796e14367bf461e3df3022c1e71a6d303a6b4561a26ee1b2c506eb6fbabf",
+  "interopScope": "payload bytes and PacketStreamFilter outer framing",
+  "rustStatefulCoverage": "none",
+  "cppStatefulCoverage": "real ServerProxy and ClientProxy1_6 dispatch via public event APIs",
+  "timerExpirationCoverage": "none (blocked pending virtual clock)",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixture": {
+    "message": "CALV",
+    "file": "remote-calv-payload.bin",
+    "size": 4,
+    "sha256": "73b6a222e74a48bcaea5d5a367bd9ecb28b0ac6a983ed27e885da39fe20d9e18",
+    "cppSymbol": "kMsgCKeepAlive",
+    "terminal": false,
+    "decodeContexts": [
+      "server-to-client/client-handshake",
+      "server-to-client/active",
+      "client-to-server/active"
+    ],
+    "encodeObservedContexts": [
+      "server-to-client/active",
+      "client-to-server/server-awaiting-info",
+      "client-to-server/active"
+    ],
+    "encodeUnknownContexts": [
+      "server-to-client/client-handshake"
+    ],
+    "asymmetries": [
+      "client-to-server/server-awaiting-info is encode-only: the client emits an echo that the server handshake parser rejects"
+    ],
+    "sourceRefs": [
+      "src/lib/inputleap/protocol_types.cpp:25,33",
+      "src/lib/inputleap/PacketStreamFilter.cpp:87-99",
+      "src/lib/client/Client.cpp:655-669",
+      "src/lib/client/ServerProxy.cpp:150-180,222-333",
+      "src/lib/server/ClientProxyUnknown.cpp:158-186",
+      "src/lib/server/ClientProxy1_6.cpp:37-70,106-155,157-247"
+    ]
+  },
+  "outerFrame": {
+    "producer": "PacketStreamFilter::write",
+    "size": 8,
+    "hex": "0000000443414c56"
+  },
+  "harnesses": [
+    {
+      "file": "../../../../../src/test/rust-r2/KeepAliveInterop.cpp",
+      "sha256": "e26557762570fffc4638db2686f4a577cb4a66e726b66fcff3b3e58a887274e6",
+      "coverage": "ProtocolUtil payload bytes and PacketStreamFilter outer framing"
+    },
+    {
+      "file": "../../../../../src/test/rust-r2/KeepAliveStatefulInterop.cpp",
+      "sha256": "2b1a2a53d1cd5b2712c1d549195fb9385d99874d4759024282383bf79db375b1",
+      "coverage": "four real C++ parser/event-dispatch cases; no timer expiration"
+    }
+  ],
+  "statefulCases": [
+    "client-handshake: CALV output",
+    "client-active: CALV then CNOP output",
+    "server-handshake: close and CLIENT_PROXY_DISCONNECTED",
+    "server-active: no protocol send and two structural heartbeat alarm resets"
+  ],
+  "limitationSourceRefs": [
+    "src/lib/base/EventQueue.h:114-118",
+    "src/lib/base/EventQueue.cpp:111-137",
+    "src/test/global/TestEventQueue.cpp:34-39"
+  ],
+  "unknowns": [
+    "FILE_KEEPALIVE reachability while the client receiver is in handshake remains UNKNOWN and server-to-client/client-handshake encode is not authorized",
+    "periodicity and timeout expiration are not covered because the production EventQueue has no virtual clock seam",
+    "the Rust codec does not execute echo, CNOP, timer reset, disconnect, or timeout state transitions"
+  ]
+}

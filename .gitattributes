@@ -1,0 +1,22 @@
+*.wxs text eol=lf
+*.wxi text eol=lf
+*.wxi.in text eol=lf
+
+# R2 protocol migration receipts hash exact working-tree bytes. Keep their
+# checkout form deterministic and independent of core.autocrlf.
+.hermes/** text eol=lf
+docs/architecture/rust-rewrite/** text eol=lf
+rust/** text eol=lf
+rust/**/*.bin -text
+src/lib/** text eol=lf
+src/test/global/** text eol=lf
+src/test/fixtures/**/*.json text eol=lf
+src/test/helpers/** text eol=lf
+src/test/rust-r2/** text eol=lf
+src/test/unittests/inputleap/ProtocolFixtureEmitterTests.cpp text eol=lf
+src/test/unittests/inputleap/ProtocolUtilTests.cpp text eol=lf
+src/gui/test/fixtures/**/*.json text eol=lf
+r2-tranche9-*.sha256 text eol=lf
+r2-tranche9-*.log text eol=lf
+r2-tranche10-*.sha256 text eol=lf
+r2-tranche10-*.log text eol=lf

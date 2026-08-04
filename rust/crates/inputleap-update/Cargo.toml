@@ -1,0 +1,13 @@
+[package]
+name = "inputleap-update"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+inputleap-types = { path = "../inputleap-types", version = "0.1.0" }
+sha2 = "0.11"
+
+[lints]
+workspace = true

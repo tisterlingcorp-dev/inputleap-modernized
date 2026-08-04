@@ -1,0 +1,8 @@
+title = "InputLeap secret scanning policy"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Deterministic SRP/HKDF interoperability fixture; contains public test vectors, not credentials"
+paths = ['''src[\\/]gui[\\/]test[\\/]fixtures[\\/]pairing-srp6a-hkdf-v1\.json$''']

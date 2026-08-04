@@ -1,0 +1,89 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "INPUTLEAP_BUILD_GUI": "ON",
+                "INPUTLEAP_BUILD_X11": "ON",
+                "INPUTLEAP_BUILD_LIBEI": "AUTO"
+            }
+        },
+        { "name": "debug-tests", "inherits": "base", "displayName": "Debug with tests", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "INPUTLEAP_BUILD_TESTS": "ON" } },
+        { "name": "release", "inherits": "base", "displayName": "Release", "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "INPUTLEAP_BUILD_TESTS": "ON" } },
+        { "name": "asan", "inherits": "debug-tests", "displayName": "Debug with ASan and UBSan", "cacheVariables": { "INPUTLEAP_ENABLE_SANITIZERS": "ON" } },
+        { "name": "clang-tidy", "inherits": "debug-tests", "displayName": "Debug with clang-tidy", "cacheVariables": { "INPUTLEAP_ENABLE_CLANG_TIDY": "ON" } },
+        { "name": "wayland", "inherits": "debug-tests", "displayName": "Wayland/libei required", "cacheVariables": { "INPUTLEAP_BUILD_LIBEI": "ON" } },
+        {
+            "name": "windows-msvc-base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+            "environment": { "BONJOUR_SDK_HOME": "${sourceDir}/deps/BonjourSDKLike" },
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "D:/Qt/6.4.2/msvc2019_64",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/deps/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+                "INPUTLEAP_BUILD_GUI": "ON",
+                "INPUTLEAP_BUILD_X11": "OFF",
+                "INPUTLEAP_BUILD_LIBEI": "OFF"
+            }
+        },
+        {
+            "name": "windows-msvc-main",
+            "inherits": "windows-msvc-base",
+            "displayName": "Windows MSVC - main binaries",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "INPUTLEAP_BUILD_TESTS": "OFF" }
+        },
+        {
+            "name": "windows-msvc-tests",
+            "inherits": "windows-msvc-base",
+            "displayName": "Windows MSVC - tests",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "INPUTLEAP_BUILD_TESTS": "ON" }
+        },
+        {
+            "name": "windows-msvc-release-tests",
+            "inherits": "windows-msvc-tests",
+            "displayName": "Windows MSVC - Release tests",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "INPUTLEAP_BUILD_TESTS": "ON" }
+        }
+    ],
+    "buildPresets": [
+        { "name": "debug-tests", "configurePreset": "debug-tests" },
+        { "name": "release", "configurePreset": "release" },
+        { "name": "asan", "configurePreset": "asan" },
+        { "name": "clang-tidy", "configurePreset": "clang-tidy" },
+        { "name": "wayland", "configurePreset": "wayland" },
+        { "name": "windows-msvc-main", "configurePreset": "windows-msvc-main", "targets": ["input-leap", "input-leap-firewall-helper", "inputleap-update-helper", "input-leapc", "input-leaps", "input-leapd"], "jobs": 2 },
+        { "name": "windows-msvc-tests", "configurePreset": "windows-msvc-tests", "targets": ["integtests", "unittests", "inputleap-process-fixture-helper", "configurationpackagetests", "environmentprofilesessiontests", "updateservicetests", "updatedownloadservicetests", "updateinstallpolicytests", "updatehelperprotocoltests", "windowsauthenticodetests", "windowsstagedpackageguardtests", "guiunittests", "guimodeltests", "devicepermissionstests", "clipboardhistorytests", "clipboardprotectiontests", "transferqueuetests", "transferperformancetests", "capabilitynegotiationtests", "reconnectionpolicytests", "networkrecoverytests", "diagnosticstests", "supportreporttests", "diagnosticsremediationtests", "zeroconfmetadatatests", "protocolsecuritytests", "ipcreadertests", "ipcclienttests"], "jobs": 2 },
+        { "name": "windows-msvc-release-tests", "configurePreset": "windows-msvc-release-tests", "inherits": "windows-msvc-tests", "targets": ["input-leap", "input-leap-firewall-helper", "inputleap-update-helper", "input-leapc", "input-leaps", "input-leapd", "integtests", "unittests", "inputleap-process-fixture-helper", "configurationpackagetests", "environmentprofilesessiontests", "updateservicetests", "updatedownloadservicetests", "updateinstallpolicytests", "updatehelperprotocoltests", "windowsauthenticodetests", "windowsstagedpackageguardtests", "guiunittests", "guimodeltests", "devicepermissionstests", "clipboardhistorytests", "clipboardprotectiontests", "transferqueuetests", "transferperformancetests", "capabilitynegotiationtests", "reconnectionpolicytests", "networkrecoverytests", "diagnosticstests", "supportreporttests", "diagnosticsremediationtests", "zeroconfmetadatatests", "protocolsecuritytests", "ipcreadertests", "ipcclienttests"] }
+    ],
+    "testPresets": [
+        { "name": "debug-tests", "configurePreset": "debug-tests", "output": { "outputOnFailure": true } },
+        { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } },
+        {
+            "name": "asan", "configurePreset": "asan", "output": { "outputOnFailure": true },
+            "environment": { "ASAN_OPTIONS": "detect_leaks=0:strict_string_checks=1", "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1" }
+        },
+        { "name": "wayland", "configurePreset": "wayland", "output": { "outputOnFailure": true } },
+        {
+            "name": "windows-msvc-tests", "configurePreset": "windows-msvc-tests", "output": { "outputOnFailure": true },
+            "environment": { "PATH": "D:/Qt/6.4.2/msvc2019_64/bin;$penv{PATH}" }
+        },
+        {
+            "name": "windows-msvc-release-tests", "configurePreset": "windows-msvc-release-tests", "inherits": "windows-msvc-tests"
+        },
+        {
+            "name": "windows-msvc-gui-models", "configurePreset": "windows-msvc-tests",
+            "filter": { "include": { "label": "gui-models" } },
+            "output": { "outputOnFailure": true },
+            "environment": { "PATH": "D:/Qt/6.4.2/msvc2019_64/bin;$penv{PATH}" }
+        }
+    ]
+}

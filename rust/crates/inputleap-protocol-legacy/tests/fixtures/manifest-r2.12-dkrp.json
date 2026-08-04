@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.12-dkrp-differential-fixtures",
+  "tranche": "R2.12",
+  "sourceRevision": "e482fa8f179843f16554f1fb74f098b38c83dcda",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "0008cd995d7ec2175b712e58061404b6c34a677e590b6d8d64c89626437bb305",
+  "interopScope": "DKRP payload bytes through PacketStreamFilter outer framing",
+  "rustStatefulCoverage": "none",
+  "cppStatefulCoverage": "real ServerProxy active dispatch via public STREAM_INPUT_READY event API into RecordingClient keyRepeat override; every partial DKRP payload length 4 through 11 emits EBAD, raises CLIENT_CONNECTION_FAILED, and produces no key callback; CLIENT_DISCONNECTED and transport close are not claimed",
+  "valueSemantics": "DKRP carries raw KeyID, KeyModifierMask, the low 16 bits of repeat count, and KeyButton as four unsigned 16-bit big-endian wire fields",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixtures": [
+    {
+      "kind": "boundary-frame",
+      "file": "remote-dkrp-boundary-frame.bin",
+      "keyId": 4660,
+      "modifierMask": 32769,
+      "count": 65535,
+      "button": 2,
+      "size": 16,
+      "sha256": "43959c79e17cc54593cf3f9ffaa76a6db86905917be63f435d95031932faa889"
+    }
+  ],
+  "contract": {
+    "messages": [
+      "DKRP"
+    ],
+    "formats": [
+      "DKRP%2i%2i%2i%2i"
+    ],
+    "cppSymbols": [
+      "kMsgDKeyRepeat"
+    ],
+    "fieldTypes": [
+      "keyId:u16",
+      "modifierMask:u16",
+      "count:u16",
+      "button:u16"
+    ],
+    "decodeContexts": [
+      "server-to-client/active"
+    ],
+    "decodeStructuralValues": "all unsigned u16 quadruples",
+    "encodeObservedContexts": [
+      "server-to-client/active"
+    ],
+    "encodeWriterDomain": "all unsigned u16 quadruples; the productive int32 repeat count is narrowed to its low 16 bits by ProtocolUtil %2i",
+    "rejectedContexts": [
+      "server-to-client/client-handshake",
+      "server-to-client/server-awaiting-hello-back",
+      "server-to-client/server-awaiting-info",
+      "client-to-server/client-handshake",
+      "client-to-server/server-awaiting-hello-back",
+      "client-to-server/server-awaiting-info",
+      "client-to-server/active"
+    ],
+    "boundary": 12,
+    "terminal": false,
+    "sourceRefs": [
+      "src/lib/inputleap/protocol_types.cpp:36-37",
+      "src/lib/inputleap/protocol_types.h:205-210",
+      "src/lib/inputleap/key_types.h:23-44",
+      "src/lib/inputleap/ProtocolUtil.h:41-89,100-107",
+      "src/lib/inputleap/ProtocolUtil.cpp:33-192,194-254,256-310,454-497",
+      "src/lib/io/StreamFilter.cpp:24-31,90-99",
+      "src/lib/inputleap/PacketStreamFilter.cpp:87-99,129-147,151-177",
+      "src/lib/server/Server.cpp:1606-1613",
+      "src/lib/server/ClientProxy1_6.cpp:343-347",
+      "src/lib/server/ClientConnectionByStream.cpp:64-68",
+      "src/lib/client/ServerProxy.cpp:40-65,103-140,239-241,621-644",
+      "src/lib/client/Client.cpp:288-291"
+    ]
+  },
+  "outerFrames": [
+    {
+      "kind": "boundary-frame",
+      "producer": "PacketStreamFilter::write",
+      "size": 16,
+      "hex": "0000000c444b525012348001ffff0002"
+    }
+  ],
+  "harnesses": [
+    {
+      "file": "../../../../../src/test/rust-r2/DkrpInterop.cpp",
+      "sha256": "1820c607f966dbd6746ac4b63a8b095852c37adbb7ae834853cedad5a98f4e38",
+      "coverage": "C++ ProtocolUtil payload and PacketStreamFilter frame generation; bidirectional C++/Rust decode and encode at unsigned u16 boundaries"
+    },
+    {
+      "file": "../../../../../src/test/rust-r2/DkrpStatefulInterop.cpp",
+      "sha256": "954648c45637293d097339bd15a9d87ce0f1807c51569b094968b2592c9bf98d",
+      "coverage": "real ServerProxy public-event dispatch records boundary then zero/one repeat fields, processes trailing CROP, emits three CNOP replies, and rejects every partial DKRP length 4 through 11 with EBAD plus CLIENT_CONNECTION_FAILED and no key callback; CLIENT_DISCONNECTED is explicitly absent"
+    },
+    {
+      "file": "../../examples/dkrp_interop.rs",
+      "sha256": "99ecd1f804bb982eaf6e9e48fc1be35c2e33967433db552825063558e4c0140b",
+      "coverage": "Rust frame decode/encode bridge with exclusive output publication"
+    }
+  ],
+  "statefulCases": [
+    "client-active: ordered callbacks are DKRP 0x1234/0x8001/0xffff/2 then DKRP 0/0/1/2",
+    "client-active: DSOP activation, both DKRP messages, and trailing CROP emit three CNOP replies",
+    "client-active: nonterminal DKRP processing continues to trailing CROP",
+    "client-active: every partial DKRP payload length 4 through 11 emits EBAD, raises CLIENT_CONNECTION_FAILED, does not raise CLIENT_DISCONNECTED, and produces no key callback"
+  ],
+  "scopeExclusions": [
+    "DMRM and DMWM remain outside R2.12 and require separately gated truncation tests before migration",
+    "IPC 24801 is outside this DKRP vertical slice"
+  ],
+  "limitations": [
+    "Rust is a codec only and does not execute key or protocol-state effects",
+    "RecordingClient overrides Client::keyRepeat and prevents operating-system input; platform injection and physical keyboard effects are outside this protocol gate",
+    "The harness proves the CLIENT_CONNECTION_FAILED event only; transport close and CLIENT_DISCONNECTED are not claimed"
+  ]
+}

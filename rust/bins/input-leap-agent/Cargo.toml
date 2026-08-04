@@ -1,0 +1,17 @@
+[package]
+name = "input-leap-agent"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "GPL-2.0-only"
+rust-version = "1.88"
+
+[dependencies]
+inputleap-platform-x11 = { path = "../../crates/inputleap-platform-x11" }
+inputleap-protocol-legacy = { path = "../../crates/inputleap-protocol-legacy" }
+inputleap-runtime = { path = "../../crates/inputleap-runtime" }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[workspace]

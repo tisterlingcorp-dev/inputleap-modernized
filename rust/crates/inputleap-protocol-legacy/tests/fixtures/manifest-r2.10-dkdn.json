@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.10-dkdn-differential-fixtures",
+  "tranche": "R2.10",
+  "sourceRevision": "e482fa8f179843f16554f1fb74f098b38c83dcda",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "0008cd995d7ec2175b712e58061404b6c34a677e590b6d8d64c89626437bb305",
+  "interopScope": "DKDN payload bytes through PacketStreamFilter outer framing",
+  "rustStatefulCoverage": "none",
+  "cppStatefulCoverage": "real ServerProxy active dispatch via public STREAM_INPUT_READY event API into RecordingClient keyDown override; every partial DKDN payload length 4 through 9 emits EBAD, raises CLIENT_CONNECTION_FAILED, and produces no key callback; CLIENT_DISCONNECTED and transport close are not claimed",
+  "valueSemantics": "DKDN carries raw KeyID, KeyModifierMask, and KeyButton as three unsigned 16-bit big-endian wire fields",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixtures": [
+    {
+      "kind": "boundary-frame",
+      "file": "remote-dkdn-boundary-frame.bin",
+      "keyId": 4660,
+      "modifierMask": 32769,
+      "button": 65535,
+      "size": 14,
+      "sha256": "b29917ced4291955658d2e045c45d6372a58e3ab3b1aaab26e88162b49863a3f"
+    }
+  ],
+  "contract": {
+    "messages": [
+      "DKDN"
+    ],
+    "formats": [
+      "DKDN%2i%2i%2i"
+    ],
+    "cppSymbols": [
+      "kMsgDKeyDown"
+    ],
+    "fieldTypes": [
+      "keyId:u16",
+      "modifierMask:u16",
+      "button:u16"
+    ],
+    "decodeContexts": [
+      "server-to-client/active"
+    ],
+    "decodeStructuralValues": "all unsigned u16 triples",
+    "encodeObservedContexts": [
+      "server-to-client/active"
+    ],
+    "encodeWriterDomain": "all unsigned u16 triples",
+    "rejectedContexts": [
+      "server-to-client/client-handshake",
+      "server-to-client/server-awaiting-hello-back",
+      "server-to-client/server-awaiting-info",
+      "client-to-server/client-handshake",
+      "client-to-server/server-awaiting-hello-back",
+      "client-to-server/server-awaiting-info",
+      "client-to-server/active"
+    ],
+    "boundary": 10,
+    "terminal": false,
+    "sourceRefs": [
+      "src/lib/inputleap/protocol_types.cpp:34-35",
+      "src/lib/inputleap/protocol_types.h:189-203",
+      "src/lib/inputleap/key_types.h:23-44",
+      "src/lib/inputleap/ProtocolUtil.h:41-89,100-107",
+      "src/lib/inputleap/ProtocolUtil.cpp:33-192,194-254,256-310,454-497",
+      "src/lib/io/StreamFilter.cpp:24-31,90-99",
+      "src/lib/inputleap/PacketStreamFilter.cpp:87-99,129-147,151-177",
+      "src/lib/server/Server.cpp:1559-1575",
+      "src/lib/server/ClientProxy1_6.cpp:338-341",
+      "src/lib/server/ClientConnectionByStream.cpp:54-57",
+      "src/lib/client/ServerProxy.cpp:40-65,103-140,236-238,596-617",
+      "src/lib/client/Client.cpp:283-286"
+    ]
+  },
+  "outerFrames": [
+    {
+      "kind": "boundary-frame",
+      "producer": "PacketStreamFilter::write",
+      "size": 14,
+      "hex": "0000000a444b444e12348001ffff"
+    }
+  ],
+  "harnesses": [
+    {
+      "file": "../../../../../src/test/rust-r2/DkdnInterop.cpp",
+      "sha256": "c8a40a1b98d25c2bf17494ed2a067f6679a637492b316dbcc1a97af0c0d3ba1b",
+      "coverage": "C++ ProtocolUtil payload and PacketStreamFilter frame generation; bidirectional C++/Rust decode and encode at unsigned u16 boundaries"
+    },
+    {
+      "file": "../../../../../src/test/rust-r2/DkdnStatefulInterop.cpp",
+      "sha256": "0b780f165079cf364b7965ce1878978e104364014ab9c46bc69d31f0e686d15e",
+      "coverage": "real ServerProxy public-event dispatch records boundary then zero/one fields, processes trailing CROP, emits three CNOP replies, and rejects every partial DKDN length 4 through 9 with EBAD plus CLIENT_CONNECTION_FAILED and no key callback; CLIENT_DISCONNECTED is explicitly absent"
+    },
+    {
+      "file": "../../examples/dkdn_interop.rs",
+      "sha256": "fb1aaa46df4bbbc776455e026a5672b36897214462c82b27ad7919390d4b0ff2",
+      "coverage": "Rust frame decode/encode bridge with exclusive output publication"
+    }
+  ],
+  "statefulCases": [
+    "client-active: ordered callbacks are DKDN 0x1234/0x8001/0xffff then DKDN 0/0/1",
+    "client-active: DSOP activation, both DKDN messages, and trailing CROP emit three CNOP replies",
+    "client-active: nonterminal DKDN processing continues to trailing CROP",
+    "client-active: every partial DKDN payload length 4 through 9 emits EBAD, raises CLIENT_CONNECTION_FAILED, does not raise CLIENT_DISCONNECTED, and produces no key callback"
+  ],
+  "scopeExclusions": [
+    "DKUP and DKRP remain outside R2.10 and require separately gated truncation tests before migration",
+    "IPC 24801 is outside this DKDN vertical slice"
+  ],
+  "limitations": [
+    "Rust is a codec only and does not execute key or protocol-state effects",
+    "RecordingClient overrides Client::keyDown and prevents operating-system input; platform injection and physical keyboard effects are outside this protocol gate",
+    "The harness proves the CLIENT_CONNECTION_FAILED event only; transport close and CLIENT_DISCONNECTED are not claimed"
+  ]
+}

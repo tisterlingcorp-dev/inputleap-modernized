@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "name": "inputleap-r2.13-dmrm-differential-fixtures",
+  "tranche": "R2.13",
+  "sourceRevision": "a729d67dfe9da10be29a2ea8525ad5f3dd8351db",
+  "sourceManifest": "../../../../../docs/architecture/rust-rewrite/r0-source-manifest.json",
+  "sourceManifestSha256": "4e5274f55c6694f6e8a6c192e64fe824dd3f02fdeebc3c9641bd664a1e55808a",
+  "interopScope": "DMRM payload bytes through PacketStreamFilter outer framing",
+  "rustStatefulCoverage": "none",
+  "cppStatefulCoverage": "real ServerProxy active dispatch via public STREAM_INPUT_READY event API into RecordingClient mouseRelativeMove override; every partial DMRM payload length 4 through 7 emits EBAD, raises CLIENT_CONNECTION_FAILED, produces no mouse callback, and does not claim CLIENT_DISCONNECTED or transport close",
+  "valueSemantics": "DMRM carries two signed i16 relative deltas; C++ ProtocolUtil and Rust preserve all 16-bit patterns byte-identically",
+  "contextSemantics": {
+    "direction": "wire sender-to-receiver",
+    "state": "receiver state"
+  },
+  "fixtures": [
+    {
+      "kind": "min-max-frame",
+      "file": "remote-dmrm-min-max-frame.bin",
+      "dx": -32768,
+      "dy": 32767,
+      "size": 12,
+      "sha256": "1a3a28f89f5780ae3832395b45b6a0345132932ed6b65b0756bda8eab2710264"
+    }
+  ],
+  "contract": {
+    "messages": [
+      "DMRM"
+    ],
+    "formats": [
+      "DMRM%2i%2i"
+    ],
+    "cppSymbols": [
+      "kMsgDMouseRelMove"
+    ],
+    "fieldTypes": [
+      "dx:i16",
+      "dy:i16"
+    ],
+    "decodeContexts": [
+      "server-to-client/active"
+    ],
+    "decodeStructuralValues": "all signed i16 relative delta pairs",
+    "encodeObservedContexts": [
+      "server-to-client/active"
+    ],
+    "encodeWriterDomain": "all signed i16 relative delta pairs",
+    "rejectedContexts": [
+      "server-to-client/client-handshake",
+      "server-to-client/server-awaiting-hello-back",
+      "server-to-client/server-awaiting-info",
+      "client-to-server/client-handshake",
+      "client-to-server/server-awaiting-hello-back",
+      "client-to-server/server-awaiting-info",
+      "client-to-server/active"
+    ],
+    "boundary": 8,
+    "terminal": false,
+    "sourceRefs": [
+      "src/lib/inputleap/protocol_types.cpp:43",
+      "src/lib/inputleap/ProtocolUtil.h:41-89,100-107",
+      "src/lib/inputleap/ProtocolUtil.cpp:33-192,194-254,256-310,454-497",
+      "src/lib/io/StreamFilter.cpp:24-31,90-99",
+      "src/lib/inputleap/PacketStreamFilter.cpp:87-99,129-147,151-177",
+      "src/lib/server/Server.cpp:1818-1827",
+      "src/lib/server/ClientProxy1_6.cpp:369-372",
+      "src/lib/server/ClientConnectionByStream.cpp:85-88",
+      "src/lib/client/ServerProxy.cpp:743-770",
+      "src/lib/client/Client.cpp:316-319",
+      "src/lib/inputleap/Screen.cpp:226-230"
+    ]
+  },
+  "outerFrames": [
+    {
+      "kind": "min-max-frame",
+      "producer": "PacketStreamFilter::write",
+      "size": 12,
+      "hex": "00000008444d524d80007fff"
+    }
+  ],
+  "harnesses": [
+    {
+      "file": "../../../../../src/test/rust-r2/DmrmInterop.cpp",
+      "sha256": "2dda7631f92d739e42659070a1e76ba140f0c6c494f0f9a20f3a5582ebe50299",
+      "coverage": "C++ ProtocolUtil payload and PacketStreamFilter frame generation; bidirectional C++/Rust decode and encode at signed i16 boundaries"
+    },
+    {
+      "file": "../../../../../src/test/rust-r2/DmrmStatefulInterop.cpp",
+      "sha256": "271a13caea5b2a64413ab085300b09fe7c28e813aae8fd0ef577a242836c2b83",
+      "coverage": "real ServerProxy public-event dispatch records MIN/MAX then -1/0, processes trailing CROP, emits three CNOP replies, and rejects every partial DMRM length 4 through 7 with EBAD plus CLIENT_CONNECTION_FAILED and no mouse callback; CLIENT_DISCONNECTED is explicitly absent"
+    },
+    {
+      "file": "../../examples/dmrm_interop.rs",
+      "sha256": "744bc674b3e6447770191faf52cac4dda4ad8bf1a6e22b9c2f06082907f2a19c",
+      "coverage": "Rust frame decode/encode bridge with exclusive output publication"
+    }
+  ],
+  "statefulCases": [
+    "client-active: ordered callbacks are DMRM -32768/32767 then DMRM -1/0",
+    "client-active: DSOP activation, both DMRM messages, and trailing CROP emit three CNOP replies",
+    "client-active: nonterminal DMRM processing continues to trailing CROP",
+    "client-active: every partial DMRM payload length 4 through 7 emits EBAD, raises CLIENT_CONNECTION_FAILED, does not raise CLIENT_DISCONNECTED, and produces no mouse callback"
+  ],
+  "scopeExclusions": [
+    "DMWM remains outside R2.13 and requires a separately gated truncation and interop tranche",
+    "IPC 24801 is outside this DMRM vertical slice"
+  ],
+  "limitations": [
+    "Rust is a codec only and does not execute mouse or protocol-state effects",
+    "RecordingClient overrides Client::mouseRelativeMove and prevents operating-system input; platform injection and physical pointer effects are outside this protocol gate",
+    "The harness proves the CLIENT_CONNECTION_FAILED event only; transport close and CLIENT_DISCONNECTED are not claimed"
+  ]
+}
