@@ -1,4 +1,5 @@
 #include "../src/ClipboardProtectionPolicy.h"
+#include <QDir>
 #include <gtest/gtest.h>
 
 TEST(ClipboardProtectionTests, FailsClosedWhenPasswordSignalIsUnavailable)
@@ -23,10 +24,11 @@ TEST(ClipboardProtectionTests, RejectsPlatformReportedPasswordWithoutTextHeurist
 TEST(ClipboardProtectionTests, ExcludesResolvedProcessPathExactly)
 {
     ClipboardProtectionPolicy policy;
-    policy.setExcludedApplications({QStringLiteral("C:/Program Files/Password Manager/app.exe")});
+    const QString excludedPath = QDir::cleanPath(QDir::tempPath() + QStringLiteral("/Program Files/Password Manager/app.exe"));
+    policy.setExcludedApplications({excludedPath});
     ClipboardProtectionPolicy::Metadata metadata;
     metadata.hasPasswordSignal = true;
-    metadata.ownerProcessPath = QStringLiteral("c:/program files/password manager/app.exe");
+    metadata.ownerProcessPath = excludedPath.toUpper();
     EXPECT_FALSE(policy.accept(metadata, QStringLiteral("qualquer")));
     EXPECT_EQ(policy.reason(), ClipboardProtectionPolicy::DecisionReason::ExcludedApplication);
 }

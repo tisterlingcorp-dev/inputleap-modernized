@@ -1,10 +1,26 @@
 #include "DiagnosticsRemediationService.h"
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
 #include <gtest/gtest.h>
 #include <QCoreApplication>
 
 namespace {
+QString dummyExecutablePath(const QString& name)
+{
+    static QTemporaryDir temporaryPath;
+    if (!temporaryPath.isValid()) return QCoreApplication::applicationDirPath() + "/" + name;
+    const QString candidate = QDir::cleanPath(temporaryPath.path() + "/" + name);
+    if (!QFile::exists(candidate)) {
+        QFile file(candidate);
+        file.open(QIODevice::WriteOnly);
+        file.close();
+    }
+    return candidate;
+}
+
 FirewallRuleSpec one(QString suffix="input-leaps.exe", quint16 port=24800) {
-    return {QCoreApplication::applicationDirPath()+"/"+suffix,{port},FirewallProfile::Domain|FirewallProfile::Private};
+    return {dummyExecutablePath(suffix),{port},FirewallProfile::Domain|FirewallProfile::Private};
 }
 FirewallRuleSetSpec set(){ return {{one(),one("input-leap.exe",24810)}}; }
 FirewallObservedRule rule(const FirewallRuleSpec&s,bool allow=true,FirewallProfiles profiles=FirewallProfile::Domain|FirewallProfile::Private){
