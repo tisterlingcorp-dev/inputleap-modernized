@@ -9,7 +9,7 @@ NegotiationDecision blocked(QString reason, CapabilityId id, const ProtocolVersi
     QString technical = QStringLiteral("capacidade=%1").arg(CapabilityNegotiationPolicy::capabilityName(id));
     if (local) technical += QStringLiteral("; local=%1").arg(local->toString());
     if (remote) technical += QStringLiteral("; remoto=%1").arg(remote->toString());
-    return {NegotiationStatus::SecurityBlocked, std::move(reason), technical};
+    return NegotiationDecision{NegotiationStatus::SecurityBlocked, std::move(reason), technical, false, std::nullopt};
 }
 }
 
@@ -48,20 +48,20 @@ QString CapabilityNegotiationPolicy::capabilityName(CapabilityId id)
 
 NegotiationDecision CapabilityNegotiationPolicy::decide(CapabilityId id, const ProtocolVersion& remote, bool authenticated) const
 {
-    if (!local_.contains(id)) return {NegotiationStatus::UpgradeLocal, QStringLiteral("Atualização necessária — atualize este computador."),
-                                      QStringLiteral("capacidade=%1; local=ausente; remoto=%2").arg(capabilityName(id),remote.toString())};
+    if (!local_.contains(id)) return NegotiationDecision{NegotiationStatus::UpgradeLocal, QStringLiteral("Atualização necessária — atualize este computador."),
+                                      QStringLiteral("capacidade=%1; local=ausente; remoto=%2").arg(capabilityName(id),remote.toString()), false, std::nullopt};
     const auto support=local_.value(id);
     const QString tech=QStringLiteral("capacidade=%1; local=%2..%3; remoto=%4").arg(capabilityName(id),support.minimum.toString(),support.maximum.toString(),remote.toString());
     if (remote.major > support.maximum.major)
-        return {NegotiationStatus::UpgradeLocal,QStringLiteral("Atualização necessária — atualize este computador."),tech};
+        return NegotiationDecision{NegotiationStatus::UpgradeLocal,QStringLiteral("Atualização necessária — atualize este computador."),tech, false, std::nullopt};
     if (remote.major < support.minimum.major)
-        return support.securitySensitive ? NegotiationDecision{NegotiationStatus::SecurityBlocked,QStringLiteral("Recurso bloqueado por segurança; atualize o outro computador."),tech}
-                                         : NegotiationDecision{NegotiationStatus::UpgradeRemote,QStringLiteral("Atualização necessária — atualize o outro computador."),tech};
+        return support.securitySensitive ? NegotiationDecision{NegotiationStatus::SecurityBlocked,QStringLiteral("Recurso bloqueado por segurança; atualize o outro computador."),tech, false, std::nullopt}
+                                         : NegotiationDecision{NegotiationStatus::UpgradeRemote,QStringLiteral("Atualização necessária — atualize o outro computador."),tech, false, std::nullopt};
     if (remote.minor < support.minimum.minor)
-        return support.securitySensitive ? NegotiationDecision{NegotiationStatus::SecurityBlocked,QStringLiteral("Recurso bloqueado por segurança; atualize o outro computador."),tech}
-                                         : NegotiationDecision{NegotiationStatus::UpgradeRemote,QStringLiteral("Atualização necessária — atualize o outro computador."),tech};
+        return support.securitySensitive ? NegotiationDecision{NegotiationStatus::SecurityBlocked,QStringLiteral("Recurso bloqueado por segurança; atualize o outro computador."),tech, false, std::nullopt}
+                                         : NegotiationDecision{NegotiationStatus::UpgradeRemote,QStringLiteral("Atualização necessária — atualize o outro computador."),tech, false, std::nullopt};
     if (support.securitySensitive && !authenticated)
-        return {NegotiationStatus::SecurityBlocked,QStringLiteral("Confirme este recurso em uma conexão autenticada."),tech+QStringLiteral("; anúncio DNS-SD não autenticado"),true};
+        return NegotiationDecision{NegotiationStatus::SecurityBlocked,QStringLiteral("Confirme este recurso em uma conexão autenticada."),tech+QStringLiteral("; anúncio DNS-SD não autenticado"),true, std::nullopt};
     NegotiationDecision result;
     result.status=remote.minor==support.maximum.minor?NegotiationStatus::Supported:NegotiationStatus::Degraded;
     result.reason=result.status==NegotiationStatus::Supported?QStringLiteral("Compatível."):QStringLiteral("Compatível com alguns recursos limitados.");
@@ -80,7 +80,7 @@ CapabilityNegotiationSnapshot CapabilityNegotiationPolicy::negotiate(const Capab
     }
     if (ad.legacy) {
         if (ad.legacyAppVersion == QStringLiteral("3.1.0") || ad.legacyAppVersion == QStringLiteral("3.1.0-modernized")) {
-            result.base={NegotiationStatus::Degraded,QStringLiteral("Compatibilidade básica com InputLeap 3.1.0; recursos novos ficam desativados."),QStringLiteral("baseline legado seguro exato=3.1.0; control=1.0")};
+            result.base=NegotiationDecision{NegotiationStatus::Degraded,QStringLiteral("Compatibilidade básica com InputLeap 3.1.0; recursos novos ficam desativados."),QStringLiteral("baseline legado seguro exato=3.1.0; control=1.0"), false, std::nullopt};
         } else result.base=blocked(QStringLiteral("Conexão bloqueada por segurança; atualize o outro computador."),CapabilityId::Control);
         return result;
     }
@@ -93,7 +93,7 @@ CapabilityNegotiationSnapshot CapabilityNegotiationPolicy::negotiate(const Capab
         } else if (!ad.claimed.contains(id) && ad.versions.contains(id)) {
             result.capabilities[id]=blocked(QStringLiteral("Recurso bloqueado: versão anunciada sem a capacidade correspondente."),id);
         } else if (!ad.versions.contains(id)) {
-            result.capabilities[id]={NegotiationStatus::Unknown,QStringLiteral("Recurso não anunciado pelo outro computador."),QStringLiteral("capacidade=%1; remoto=ausente").arg(capabilityName(id))};
+            result.capabilities[id]=NegotiationDecision{NegotiationStatus::Unknown,QStringLiteral("Recurso não anunciado pelo outro computador."),QStringLiteral("capacidade=%1; remoto=ausente").arg(capabilityName(id)), false, std::nullopt};
         } else if (!result.base.allowed()) {
             result.capabilities[id]=blocked(QStringLiteral("Recurso bloqueado: depende de uma conexão de controle compatível."),id);
         } else result.capabilities[id]=decide(id,ad.versions.value(id),ad.authenticated.contains(id));
