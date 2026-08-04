@@ -336,6 +336,7 @@ target_link_libraries(input-leap
     Qt6::Core
     Qt6::Widgets
     Qt6::Network
+    ${libs}
 )
 
 target_link_libraries(input-leap OpenSSL::SSL OpenSSL::Crypto)

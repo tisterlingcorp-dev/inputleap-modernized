@@ -26,7 +26,8 @@ list(REMOVE_ITEM sources ${remove_platform})
 
 if (NOT BUILD_MSWINDOWS)
     list(REMOVE_ITEM sources
-        "${CMAKE_CURRENT_SOURCE_DIR}/inputleap/DaemonCommandPolicyTests.cpp")
+        "${CMAKE_CURRENT_SOURCE_DIR}/inputleap/DaemonCommandPolicyTests.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/inputleap/DaemonTopologyTransactionTests.cpp")
 endif()
 
 file(GLOB_RECURSE global_headers "../../test/global/*.h")

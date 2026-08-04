@@ -160,6 +160,7 @@ if (UNIX)
             pkg_check_modules (AVAHI_COMPAT REQUIRED avahi-compat-libdns_sd)
             include_directories (BEFORE SYSTEM ${AVAHI_COMPAT_INCLUDE_DIRS})
             set (CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${AVAHI_COMPAT_INCLUDE_DIRS}")
+            list (APPEND libs ${AVAHI_COMPAT_LINK_LIBRARIES})
         endif ()
 
         if (INPUTLEAP_BUILD_X11)
