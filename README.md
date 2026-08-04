@@ -112,6 +112,73 @@ The Tauri license gate passes, but the full advisory gate currently reports unma
 
 The repository intentionally does not contain a prebuilt Windows installer. Build outputs should be generated from a reviewed source revision and accompanied by a software bill of materials and the applicable third-party notices before distribution.
 
+## Handoff to Codex — 2026-08-04
+
+The current public source handoff is intentionally paused. Do not infer that CI is green or that a release is ready.
+
+### Repository and branch
+
+- Public repository: `https://github.com/tisterlingcorp-dev/inputleap-modernized`
+- Default branch: `master`
+- Local working branch: `public-sanitized`, tracking `modernized/master`
+- Last published commit: `569eb7e6` (`fix: provide non-Windows update helpers`)
+- Working tree was clean after that push.
+
+### Changes made during publication
+
+The sanitized public snapshot was recreated without private history, `.git`, caches, `.pyc`, DLLs or generated installers. The following minimal build fixes were then published because public CI exposed missing or incompatible source content:
+
+1. `49e9cfdf` — include required CMake modules;
+2. `cdb5577d` — restore public dependency gitlinks `ext/gtest` and `ext/gulrak-filesystem`;
+3. `9ce5f386` — include `src/lib/server/Config.h`;
+4. `569eb7e6` — provide non-Windows implementations for update helpers used by Linux compilation.
+
+The last fix was based on a CodeQL build failure reporting undefined `StagingDirectoryLock` and `removeFileWithoutReparseRace` on Linux. It was not locally compiled because the available `out/build/debug-tests` directory had no `build.ninja`; it must be verified by a clean CI build.
+
+### CI state at handoff
+
+The runs for `569eb7e6` were started but had not finished when work was paused:
+
+- Build tests: queued;
+- Quality: pending;
+- CodeQL: in progress.
+
+Previous CodeQL runs failed during C++ compilation, not because of a CodeQL finding. The first error was the missing non-Windows update helpers described above. Inspect the logs for the new commit before changing source again. Fix only the first reproducible error and rerun all gates.
+
+### Required next steps
+
+1. Confirm the public branch and working tree:
+
+   ```bash
+   git status --short --branch
+   git ls-remote modernized refs/heads/master
+   ```
+
+2. Check the three workflows for the current HEAD. A timeout or cancellation is not a pass:
+
+   ```bash
+   gh run list --repo tisterlingcorp-dev/inputleap-modernized --limit 10 \
+     --json databaseId,workflowName,status,conclusion,headSha
+   ```
+
+3. If a workflow fails, read only its failed log first:
+
+   ```bash
+   gh run view <RUN_ID> --repo tisterlingcorp-dev/inputleap-modernized --log-failed
+   ```
+
+4. Before any release or binary publication, independently verify: clean source tree, no secrets or opaque binaries, submodules resolve publicly, Build tests/Quality/CodeQL pass, `cargo deny` advisories are explicitly reviewed, and third-party notices/legal packaging are complete.
+
+5. Do not publish a release, installer, update manifest, signing key, or auto-update channel from this handoff alone.
+
+### Known blockers and cautions
+
+- `cargo deny --manifest-path rust/apps/input-leap/src-tauri/Cargo.toml check advisories` previously reported unmaintained GTK3 and Unicode transitive crates; advisories were not suppressed.
+- Bonjour/mDNSResponder redistribution and generated installer contents still require legal/dependency review.
+- macOS and Wayland remain permanently out of scope.
+- Production runtime validation requires TLS/mTLS and must not use `--disable-crypto`.
+- Do not commit private runtime logs, credentials, machine-specific paths, build directories or generated binaries.
+
 ## License
 
 The C++ code and derivative project source are licensed under **GPL-2.0-only with the Input Leap OpenSSL linking exception** in [`LICENSE`](LICENSE). The Rust packages declare `GPL-2.0-only`; the additional OpenSSL permission in the repository license remains applicable where relevant.
