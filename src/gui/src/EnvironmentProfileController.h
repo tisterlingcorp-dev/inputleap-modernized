@@ -112,7 +112,7 @@ private:
     std::optional<EnvironmentProfile::Kind> activeKind_;
     std::optional<EnvironmentProfile> activeProfile_;
     std::optional<QString> generation_;
-    std::atomic<std::shared_ptr<const EnvironmentProfile>> authorizationProfile_;
+    std::shared_ptr<const EnvironmentProfile> authorizationProfile_;
     std::atomic_bool gateClosed_{true};
     bool initialized_ = false;
     bool recoveredOnInitialize_ = false;

@@ -147,9 +147,9 @@ QByteArray bindingFor(const QString& transactionId,
     QCryptographicHash hash(QCryptographicHash::Sha256);
     const auto append = [&hash](const QByteArray& part) {
         const QByteArray size = QByteArray::number(part.size());
-        hash.addData(QByteArrayView(size));
-        hash.addData(QByteArrayView(":", 1));
-        hash.addData(QByteArrayView(part));
+        hash.addData(size);
+        hash.addData(QByteArrayLiteral(":"));
+        hash.addData(QByteArray(part));
     };
     append(QByteArrayLiteral("inputleap-app-config-save-v1"));
     append(transactionId.toUtf8());

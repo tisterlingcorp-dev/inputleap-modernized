@@ -54,8 +54,8 @@ QByteArray forgeCapsuleSecretWithPublicDigest(QByteArray capsule,
     QCryptographicHash hash(QCryptographicHash::Sha256);
     const auto append = [&hash](QByteArrayView value) {
         const QByteArray size = QByteArray::number(value.size());
-        hash.addData(QByteArrayView(size));
-        hash.addData(QByteArrayView(":", 1));
+        hash.addData(size);
+        hash.addData(QByteArrayLiteral(":"));
         hash.addData(value);
     };
     const QByteArray oldDomain = QByteArrayLiteral("inputleap-import-capsule-v3");

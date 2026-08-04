@@ -135,14 +135,15 @@ void EnvironmentProfileController::invalidate()
 void EnvironmentProfileController::closeAuthorizationGate() noexcept
 {
     gateClosed_.store(true, std::memory_order_release);
-    authorizationProfile_.store({}, std::memory_order_release);
+    std::atomic_store_explicit(&authorizationProfile_,
+        std::shared_ptr<const EnvironmentProfile>{}, std::memory_order_release);
 }
 
 void EnvironmentProfileController::publishAuthorizationProfile()
 {
     Q_ASSERT(QThread::currentThread() == thread());
     Q_ASSERT(activeProfile_.has_value());
-    authorizationProfile_.store(
+    std::atomic_store_explicit(&authorizationProfile_,
         std::make_shared<const EnvironmentProfile>(*activeProfile_),
         std::memory_order_release);
     gateClosed_.store(false, std::memory_order_release);
@@ -761,7 +762,7 @@ bool EnvironmentProfileController::effectiveAllows(
     const QUuid& uuid, DevicePermissions::Permission permission) const
 {
     if (gateClosed_.load(std::memory_order_acquire)) return false;
-    const auto profile = authorizationProfile_.load(std::memory_order_acquire);
+    const auto profile = std::atomic_load_explicit(&authorizationProfile_, std::memory_order_acquire);
     const auto bit = static_cast<DevicePermissions::Mask>(permission);
     if (!profile || uuid.isNull() ||
         bit == DevicePermissions::None || (bit & (bit - 1u)) != 0 ||
