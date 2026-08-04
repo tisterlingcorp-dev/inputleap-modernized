@@ -287,6 +287,22 @@ private:
     HANDLE handle_ = INVALID_HANDLE_VALUE;
 };
 #else
+bool removeFileWithoutReparseRace(const QString& path)
+{
+    return QFile::remove(path);
+}
+
+class StagingDirectoryLock final
+{
+public:
+    explicit StagingDirectoryLock(const QString& path) : valid_{QFileInfo(path).isDir()} {}
+
+    bool valid() const noexcept { return valid_; }
+
+private:
+    bool valid_ = false;
+};
+
 static const char APP_CONFIG_NAME[] = "input-leap.conf";
 static const QString APP_CONFIG_FILTER(QObject::tr("InputLeap Configurations (*.conf)"));
 #endif
