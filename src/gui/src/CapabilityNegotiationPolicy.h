@@ -6,6 +6,7 @@
 #include <QString>
 #include <QUuid>
 #include <optional>
+#include <utility>
 
 enum class CapabilityId { Control, FileTransfer, Pairing, Monitor };
 enum class NegotiationStatus { Supported, Degraded, UpgradeLocal, UpgradeRemote, Unknown, SecurityBlocked };
@@ -35,6 +36,13 @@ struct CapabilityAdvertisement {
 };
 
 struct NegotiationDecision {
+    NegotiationDecision() = default;
+    NegotiationDecision(NegotiationStatus statusValue, QString reasonValue,
+                        QString technicalValue, bool awaitingAuthenticationValue = false,
+                        std::optional<ProtocolVersion> negotiatedVersionValue = std::nullopt) :
+        status(statusValue), reason(std::move(reasonValue)), technical(std::move(technicalValue)),
+        awaitingAuthentication(awaitingAuthenticationValue),
+        negotiatedVersion(std::move(negotiatedVersionValue)) {}
     NegotiationStatus status = NegotiationStatus::Unknown;
     QString reason;
     QString technical;

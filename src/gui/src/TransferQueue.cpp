@@ -14,7 +14,6 @@ namespace {
 constexpr int kVersion=3;
 constexpr qsizetype kMaxStoreBytes=1024*1024;
 constexpr int kMaxItems=200;
-constexpr int kMaxSources=1000;
 constexpr int kMaxTextBytes=4096;
 
 bool exactKeys(const QJsonObject& object,const QSet<QString>& expected)
