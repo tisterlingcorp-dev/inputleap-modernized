@@ -21,6 +21,7 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QTimer>
 #include <QtCore/QtEndian>
+#include <QtNetwork/QHostInfo>
 #include <QtNetwork/QHostAddress>
 #include <algorithm>
 
@@ -190,10 +191,37 @@ void ZeroconfBrowser::beginAddressLookup(const QString& key,quint64 token,const 
 {
     auto it=std::find_if(operations_.begin(),operations_.end(),[&](const auto& p){return p->key==key && p->token==token && !p->cancelled;});
     if(it==operations_.end() || !coordinator_.active(key,token)) return;
-    Operation* op=it->get(); op->notifier.reset(); if(op->ref) DNSServiceRefDeallocate(op->ref); op->ref=nullptr;
-    const auto err=DNSServiceGetAddrInfo(&op->ref,0,interfaceIndex,kDNSServiceProtocol_IPv4|kDNSServiceProtocol_IPv6,host.toUtf8().constData(),addressReply,op);
-    if(err!=kDNSServiceErr_NoError){Q_EMIT error(err);removeOperation(op);return;} const int fd=DNSServiceRefSockFD(op->ref); if(fd<0){Q_EMIT error(kDNSServiceErr_Invalid);removeOperation(op);return;}
-    op->notifier=std::make_unique<QSocketNotifier>(fd,QSocketNotifier::Read,this); connect(op->notifier.get(),&QSocketNotifier::activated,this,[this,op]{processOperation(op);});
+    Operation* op=it->get();
+    op->notifier.reset();
+    if(op->ref) DNSServiceRefDeallocate(op->ref);
+    op->ref=nullptr;
+    const QString serviceName=op->serviceName;
+    QHostInfo::lookupHost(host, this, [this,key,token,serviceName,interfaceIndex](const QHostInfo& info) {
+        auto it=std::find_if(operations_.begin(),operations_.end(),[&](const auto& p){return p->key==key && p->token==token && !p->cancelled;});
+        if(it==operations_.end() || !coordinator_.active(key,token)) return;
+        if(info.error()!=QHostInfo::NoError) {
+            Q_EMIT error(kDNSServiceErr_Unknown);
+            removeOperation(it->get());
+            return;
+        }
+        for(const auto& address : info.addresses()) {
+            const QString text=address.toString();
+            const auto decision=coordinator_.address(key,token,true,text,0);
+            using Route=ZeroconfDiscoveryCoordinator::Route;
+            if(decision.route==Route::CompatibleAdd) observeAdvertisement(*decision.metadata,text,interfaceIndex);
+            else if(decision.route==Route::Legacy) Q_EMIT legacyAdvertisement(serviceName,interfaceIndex);
+            else if(decision.route==Route::Incompatible) {
+                if(decision.metadata) {
+                    instanceUuids_[key]=decision.metadata->uuid;
+                    observeAdvertisement(*decision.metadata,text,interfaceIndex);
+                }
+                Q_EMIT advertisementDiagnostic(ZeroconfParseStatus::Incompatible,decision.detail);
+            }
+            else if(decision.route==Route::Malformed || decision.route==Route::InvalidAddress)
+                Q_EMIT advertisementDiagnostic(ZeroconfParseStatus::Malformed,decision.detail);
+        }
+        removeOperation(it->get());
+    });
 }
 
 void ZeroconfBrowser::addressReply(DNSServiceRef,DNSServiceFlags flags,quint32 interfaceIndex,DNSServiceErrorType errorCode,const char*,const struct sockaddr* address,quint32 ttl,void* context)
