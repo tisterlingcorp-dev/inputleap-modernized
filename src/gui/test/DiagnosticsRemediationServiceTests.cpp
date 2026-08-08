@@ -1,6 +1,7 @@
 #include "DiagnosticsRemediationService.h"
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <gtest/gtest.h>
 #include <QCoreApplication>
@@ -11,6 +12,8 @@ QString dummyExecutablePath(const QString& name)
     static QTemporaryDir temporaryPath;
     if (!temporaryPath.isValid()) return QCoreApplication::applicationDirPath() + "/" + name;
     const QString candidate = QDir::cleanPath(temporaryPath.path() + "/" + name);
+    const QFileInfo info(candidate);
+    if (!info.dir().exists() && !info.dir().mkpath(".")) return QCoreApplication::applicationDirPath() + "/" + name;
     if (!QFile::exists(candidate)) {
         QFile file(candidate);
         file.open(QIODevice::WriteOnly);
