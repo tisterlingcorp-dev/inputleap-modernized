@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.7.2-modernized - 2026-08-17
+
+- Fixed the Tauri dashboard showing `UNKNOWN` when the Windows service owns the elevated C++ runtime.
+- The dashboard now continues to show the active network topology and its connected peer while authenticated daemon IPC remains the authority for lifecycle actions.
+- Added the Tauri executable to the Windows CMake install set so the Inno installer ships the controlling interface next to `input-leapd.exe`.
+
 ## 3.7.1-modernized - 2026-08-17
 
 - Made the Tauri application the authenticated controller for the managed Windows runtime.

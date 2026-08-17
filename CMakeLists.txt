@@ -330,6 +330,25 @@ endif()
 # Windows Installer
 #
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+        option(INPUTLEAP_BUNDLE_TAURI "Build and install the Tauri controller with Windows packages" ON)
+        if(INPUTLEAP_BUNDLE_TAURI)
+                find_program(INPUTLEAP_CARGO_EXECUTABLE cargo)
+                set(INPUTLEAP_TAURI_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/rust/apps/input-leap/src-tauri/Cargo.toml")
+                set(INPUTLEAP_TAURI_BINARY "${CMAKE_CURRENT_SOURCE_DIR}/rust/apps/input-leap/src-tauri/target/release/input-leap-tauri.exe")
+                if(INPUTLEAP_CARGO_EXECUTABLE AND EXISTS "${INPUTLEAP_TAURI_MANIFEST}")
+                        add_custom_command(
+                                OUTPUT "${INPUTLEAP_TAURI_BINARY}"
+                                COMMAND "${INPUTLEAP_CARGO_EXECUTABLE}" build --release --locked --manifest-path "${INPUTLEAP_TAURI_MANIFEST}"
+                                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                                DEPENDS "${INPUTLEAP_TAURI_MANIFEST}" "${CMAKE_CURRENT_SOURCE_DIR}/rust/apps/input-leap/src-tauri/src/main.rs" "${CMAKE_CURRENT_SOURCE_DIR}/rust/apps/input-leap/ui/index.html"
+                                COMMENT "Building the Input Leap Tauri controller"
+                                VERBATIM)
+                        add_custom_target(input-leap-tauri ALL DEPENDS "${INPUTLEAP_TAURI_BINARY}")
+                        install(PROGRAMS "${INPUTLEAP_TAURI_BINARY}" DESTINATION .)
+                else()
+                        message(WARNING "Cargo or the Tauri manifest is unavailable; the Windows package will not include input-leap-tauri.exe")
+                endif()
+        endif()
         set(INPUTLEAP_WIX_VERSION "${INPUTLEAP_VERSION_MAJOR}.${INPUTLEAP_VERSION_MINOR}.${INPUTLEAP_VERSION_PATCH}")
         message (STATUS "Configuring the wix installer")
         configure_files (${CMAKE_CURRENT_SOURCE_DIR}/dist/wix ${CMAKE_BINARY_DIR}/installer-wix)

@@ -1421,7 +1421,16 @@ fn read_runtime_network_state(port: u16) -> Result<RuntimeNetworkState, String> 
         RuntimeNetworkState::Stopped => None,
     };
     if let Some(pid) = owner_pid {
-        verify_runtime_owner(pid)?;
+        // The managed core can run elevated under the Windows daemon. A regular
+        // Tauri process may be allowed to inspect its TCP owner but denied the
+        // executable path. The authenticated daemon IPC remains the authority
+        // for runtime actions, so keep the network topology visible here.
+        if let Err(error) = verify_runtime_owner(pid) {
+            #[cfg(not(windows))]
+            return Err(error);
+            #[cfg(windows)]
+            eprintln!("[input-leap-tauri] runtime owner path unavailable: {error}");
+        }
     }
     Ok(state)
 }
