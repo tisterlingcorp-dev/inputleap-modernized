@@ -4,8 +4,8 @@
 
 InputLeap Modernized is an experimental Windows/Linux X11 fork of [Input Leap](https://github.com/input-leap/input-leap). It combines a Rust/Tauri desktop interface with the proven C++/Qt Input Leap runtime while the native Rust runtime is developed and validated.
 
-Current fork version: `3.7.2-modernized`
-Tauri application version: `0.1.2`
+Current fork version: `3.7.3-modernized`
+Tauri application version: `0.1.3`
 
 ## Current status
 

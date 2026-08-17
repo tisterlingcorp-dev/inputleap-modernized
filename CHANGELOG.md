@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.7.3-modernized - 2026-08-17
+
+- Changed Windows installer shortcuts and the post-install launch action to open the Tauri controller instead of the legacy Qt interface.
+- Keeps the legacy executable available for compatibility while the Tauri screen remains the primary interface.
+
 ## 3.7.2-modernized - 2026-08-17
 
 - Fixed the Tauri dashboard showing `UNKNOWN` when the Windows service owns the elevated C++ runtime.

@@ -4,7 +4,7 @@
 #define MyAppPublisher "InputLeap contributors"
 #define MyAppURL "https://github.com/input-leap/input-leap/wiki"
 #define MyAppCopyright "Copyright (C) InputLeap contributors"
-#define MyAppExeName "input-leap.exe"
+#define MyAppExeName "input-leap-tauri.exe"
 #define MyAppServiceName "InputLeap"
 #define MyAppServiceExe "input-leapd.exe"
 #define MyAppServiceDesc "Manages the InputLeap background processes."
