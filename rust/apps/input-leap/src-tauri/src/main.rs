@@ -299,6 +299,36 @@ fn atomic_topology_request_frame(
     Ok(frame)
 }
 
+fn runtime_start_request_frame(
+    request_nonce: impl AsRef<[u8]>,
+    command: &str,
+) -> Result<Vec<u8>, String> {
+    let request_nonce = request_nonce.as_ref();
+    if request_nonce.len() != 16 || command.is_empty() || command.len() > 1024 * 1024 {
+        return Err("invalid managed runtime start request".to_string());
+    }
+    let mut frame = Vec::from(*b"ISTR");
+    ipc_bytes(request_nonce, &mut frame);
+    ipc_bytes(command.as_bytes(), &mut frame);
+    frame.push(1);
+    Ok(frame)
+}
+
+fn runtime_stop_request_frame(
+    request_nonce: impl AsRef<[u8]>,
+    expected_nonce: impl AsRef<[u8]>,
+) -> Result<Vec<u8>, String> {
+    let request_nonce = request_nonce.as_ref();
+    let expected_nonce = expected_nonce.as_ref();
+    if request_nonce.len() != 16 || expected_nonce.len() != 16 || request_nonce == expected_nonce {
+        return Err("invalid managed runtime stop request".to_string());
+    }
+    let mut frame = Vec::from(*b"ISTP");
+    ipc_bytes(request_nonce, &mut frame);
+    ipc_bytes(expected_nonce, &mut frame);
+    Ok(frame)
+}
+
 fn read_exact_before_deadline(
     stream: &mut TcpStream,
     buffer: &mut [u8],
@@ -891,6 +921,79 @@ fn send_runtime_reload_with_budget(
 
 fn reload_runtime_on_stream(stream: &mut TcpStream) -> Result<(), String> {
     reload_runtime_on_stream_with_timeout(stream, Duration::from_secs(40))
+}
+
+fn managed_runtime_command() -> Result<String, String> {
+    let config = tauri_runtime_config_path()?;
+    if !config.is_file() {
+        return Err(format!(
+            "Tauri runtime configuration was not found: {}",
+            config.display()
+        ));
+    }
+    let screen_name = env::var("INPUT_LEAP_SCREEN_NAME")
+        .or_else(|_| env::var("COMPUTERNAME"))
+        .map_err(|_| "INPUT_LEAP_SCREEN_NAME or COMPUTERNAME is required".to_string())?
+        .trim()
+        .to_string();
+    if !screen_name
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
+    {
+        return Err("managed runtime screen name contains unsupported characters".to_string());
+    }
+
+    #[cfg(windows)]
+    let executable = {
+        let daemon = process_executable_path(query_windows_service_pid()?)?;
+        let candidate = daemon
+            .parent()
+            .ok_or_else(|| "InputLeap daemon has no parent directory".to_string())?
+            .join("input-leaps.exe");
+        fs::canonicalize(&candidate).map_err(|error| {
+            format!(
+                "cannot locate daemon-managed runtime {}: {error}",
+                candidate.display()
+            )
+        })?
+    };
+    #[cfg(not(windows))]
+    let executable = trusted_runtime_path()?;
+
+    Ok(format!(
+        "\"{}\" --no-daemon --debug INFO --name {} --config \"{}\" --address :24800 --enable-crypto",
+        executable.display(), screen_name, config.display()))
+}
+
+#[tauri::command]
+fn start_managed_runtime() -> Result<(), String> {
+    const TIMEOUT: Duration = Duration::from_secs(40);
+    let command = managed_runtime_command()?;
+    let request_nonce = ipc_nonce()?;
+    let frame = runtime_start_request_frame(request_nonce, &command)?;
+    let mut stream = begin_daemon_session(TIMEOUT)?;
+    let mut budget = IpcOperationBudget::new(TIMEOUT);
+    budget
+        .write_all(&mut stream, &frame)
+        .map_err(|error| format!("cannot send managed runtime start: {error}"))?;
+    wait_for_daemon_ack(&mut stream, &request_nonce, &mut budget)
+}
+
+#[tauri::command]
+fn stop_managed_runtime() -> Result<(), String> {
+    const TIMEOUT: Duration = Duration::from_secs(40);
+    let mut stream = begin_daemon_session(TIMEOUT)?;
+    let mut budget = IpcOperationBudget::new(TIMEOUT);
+    let (_, status) = query_daemon_runtime_status_with_budget(&mut stream, &mut budget)?;
+    let expected_nonce = status
+        .applied_nonce
+        .ok_or_else(|| "daemon has no managed runtime generation to stop".to_string())?;
+    let request_nonce = ipc_nonce()?;
+    let frame = runtime_stop_request_frame(request_nonce, expected_nonce)?;
+    budget
+        .write_all(&mut stream, &frame)
+        .map_err(|error| format!("cannot send managed runtime stop: {error}"))?;
+    wait_for_daemon_ack(&mut stream, &request_nonce, &mut budget)
 }
 
 fn apply_topology_on_stream_with_timeout(
@@ -1961,6 +2064,12 @@ fn main() {
                 let _ = window.set_title("Input Leap");
             }
             install_system_tray(app)?;
+            show_main_window(app.handle());
+            if env::args().any(|argument| argument == "--take-control") {
+                if let Err(error) = start_managed_runtime() {
+                    eprintln!("[input-leap-tauri] managed runtime migration failed: {error}");
+                }
+            }
             if let Err(error) = install_user_autostart() {
                 eprintln!("[input-leap-tauri] autostart setup failed: {error}");
             }
@@ -1978,6 +2087,8 @@ fn main() {
             get_sanitized_logs,
             get_runtime_topology,
             get_runtime_status,
+            start_managed_runtime,
+            stop_managed_runtime,
             reload_runtime,
             apply_topology,
         ])
@@ -2336,7 +2447,7 @@ ESTAB 0 0 192.0.2.121:24800 192.0.2.175:32828 users:((\"input-leaps\",pid=59644,
         let html = fs::read_to_string(manifest_dir.join("../ui/index.html"))
             .expect("index.html should be readable");
 
-        assert_eq!(html.matches("<button").count(), 7);
+        assert_eq!(html.matches("<button").count(), 9);
         assert!(html.contains("id=\"refresh\""));
         assert!(html.contains("reload_runtime"));
         assert!(html.contains("invoke('apply_topology'"));
@@ -2344,8 +2455,8 @@ ESTAB 0 0 192.0.2.121:24800 192.0.2.175:32828 users:((\"input-leaps\",pid=59644,
         assert!(html.contains("invoke('get_runtime_status')"));
         assert!(html
             .contains("runtimeStatus.state === 'RUNNING' && runtimeStatus.has_applied_generation"));
-        assert!(!html.contains("start_runtime"));
-        assert!(!html.contains("stop_runtime"));
+        assert!(html.contains("start_managed_runtime"));
+        assert!(html.contains("stop_managed_runtime"));
         assert!(!html.contains("save_runtime_topology"));
         assert!(!html.contains("localStorage"));
         assert!(!html.contains("runtimeButton.textContent = running ?"));
@@ -2821,16 +2932,16 @@ ESTAB 0 0 192.0.2.121:24800 192.0.2.175:32828 users:((\"input-leaps\",pid=59644,
     }
 
     #[test]
-    fn tauri_handler_exposes_authenticated_reload() {
+    fn tauri_handler_exposes_authenticated_runtime_controls() {
         let source = include_str!("main.rs");
-        let start_handler = ["            start", "_runtime,"].concat();
-        let stop_handler = ["            stop", "_runtime"].concat();
+        let start_handler = ["            start_managed", "_runtime,"].concat();
+        let stop_handler = ["            stop_managed", "_runtime,"].concat();
         let topology_handler = ["            save_runtime", "_topology"].concat();
         assert!(source.contains(
-            "get_runtime_topology,\n            get_runtime_status,\n            reload_runtime,"
+            "get_runtime_topology,\n            get_runtime_status,\n            start_managed_runtime,\n            stop_managed_runtime,\n            reload_runtime,"
         ));
-        assert!(!source.contains(&start_handler));
-        assert!(!source.contains(&stop_handler));
+        assert!(source.contains(&start_handler));
+        assert!(source.contains(&stop_handler));
         assert!(!source.contains(&topology_handler));
     }
 

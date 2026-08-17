@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.7.1-modernized - 2026-08-17
+
+- Made the Tauri application the authenticated controller for the managed Windows runtime.
+- Added Tauri start and stop controls and migrated the active runtime away from the legacy persistent task.
+- Aligned the Tauri layout file with the runtime configuration used for mouse and keyboard sharing.
+
 ## 3.0.13-modernized - 2026-07-10
 
 - Pressing Enter in the client server-IP field now performs the same action as clicking `Aplicar`.

@@ -232,6 +232,8 @@
           </div>
           <div class="actions">
             <button id="runtime-toggle" class="refresh runtime-action" type="button" aria-label="Recarregar runtime C++">Recarregar runtime</button>
+            <button id="runtime-start" class="refresh runtime-action" type="button">Iniciar runtime</button>
+            <button id="runtime-stop" class="refresh runtime-action" type="button">Parar runtime</button>
             <button id="refresh" class="refresh" type="button" aria-label="Atualizar estado da conexão">Atualizar</button>
             <button id="toggle-settings" class="refresh" type="button" aria-expanded="false">Configurações</button>
             <span class="shortcut-hint" role="note">Atalhos: R atualiza · L recarrega</span>
@@ -593,23 +595,59 @@
         byId('topology').setAttribute('aria-busy', 'true');
         refreshPromise = (async () => {
           try {
-            const [topology, agent, runtimeStatus] = await Promise.all([
-              invoke('get_runtime_topology'),
-              invoke('get_status'),
-              invoke('get_runtime_status')
-            ]);
+            const topology = await invoke('get_runtime_topology');
+            let agent = null;
+            let runtimeStatus = null;
+            const warnings = [];
+
+            try {
+              agent = await invoke('get_status');
+            } catch (error) {
+              warnings.push(`Status do agente indisponível: ${error?.toString?.() || error}`);
+            }
+
+            try {
+              runtimeStatus = await invoke('get_runtime_status');
+            } catch (error) {
+              warnings.push(`Status autoritativo do daemon indisponível: ${error?.toString?.() || error}`);
+            }
+
             const refreshCanAuthorizeRuntimeAction = refreshStartedWithoutRuntimeAction
               && !runtimeActionInFlight
               && refreshActionEpoch === runtimeActionEpoch;
             if (!refreshCanAuthorizeRuntimeAction) return;
+
             renderTopology(topology);
-            setText('agent-status', agent.status);
-            setText('agent-version', agent.version);
-            setText('agent-source', agent.source);
-            setText('daemon-runtime-status', runtimeStatus.state);
-            setText('daemon-runtime-source', runtimeStatus.source);
-            byId('runtime-toggle').disabled = !(runtimeStatus.state === 'RUNNING' && runtimeStatus.has_applied_generation);
-            topologySaveAuthorized = runtimeStatus.state === 'RUNNING' && runtimeStatus.has_applied_generation;
+
+            if (agent) {
+              setText('agent-status', agent.status);
+              setText('agent-version', agent.version);
+              setText('agent-source', agent.source);
+            } else {
+              setText('agent-status', 'INDISPONIVEL');
+              setText('agent-version', null);
+              setText('agent-source', null);
+            }
+
+            if (runtimeStatus) {
+              setText('daemon-runtime-status', runtimeStatus.state);
+              setText('daemon-runtime-source', runtimeStatus.source);
+              byId('runtime-toggle').disabled = !(runtimeStatus.state === 'RUNNING' && runtimeStatus.has_applied_generation);
+              topologySaveAuthorized = runtimeStatus.state === 'RUNNING' && runtimeStatus.has_applied_generation;
+            } else {
+              setText('daemon-runtime-status', 'INDISPONIVEL');
+              setText('daemon-runtime-source', null);
+              byId('runtime-toggle').disabled = true;
+              topologySaveAuthorized = false;
+            }
+
+            const error = byId('runtime-error');
+            const existingMessage = error.textContent?.trim() || '';
+            const warningMessage = warnings.join(' · ');
+            const combinedMessage = [existingMessage, warningMessage].filter(Boolean).join(' · ');
+            error.style.display = combinedMessage ? 'block' : 'none';
+            error.textContent = combinedMessage;
+
             updateSaveLayoutState();
             document.title = `Input Leap · ${runtimeStates.has(topology.status) ? topology.status : 'UNKNOWN'}`;
           } catch (error) {
@@ -746,6 +784,12 @@
       };
       byId('runtime-toggle').addEventListener('click', (event) => {
         runRuntimeAction('reload_runtime', event.currentTarget);
+      });
+      byId('runtime-start').addEventListener('click', (event) => {
+        runRuntimeAction('start_managed_runtime', event.currentTarget);
+      });
+      byId('runtime-stop').addEventListener('click', (event) => {
+        runRuntimeAction('stop_managed_runtime', event.currentTarget);
       });
       byId('toggle-settings').addEventListener('click', (event) => {
         const open = event.currentTarget.getAttribute('aria-expanded') !== 'true';

@@ -7,7 +7,7 @@
   },
   "identifier": "io.input-leap",
   "productName": "Input Leap",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "app": {
     "withGlobalTauri": true,
     "windows": [
