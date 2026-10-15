@@ -19,6 +19,10 @@ on:
         description: 'Also build Linux, macOS, FreeBSD and Flatpak (outside the Windows release scope)'
         required: false
         type: boolean
+      upgrade_from_run_id:
+        description: 'Optional successful Release workflow run ID whose Windows installer will be used to test upgrade and rollback'
+        required: false
+        type: string
 
 # Set the build type here
 env:
@@ -417,6 +421,9 @@ jobs:
   win-build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      actions: read
+      contents: read
 
     strategy:
       fail-fast: false
@@ -533,6 +540,38 @@ jobs:
           if (-not $entries) { throw 'No installer found for SHA-256 manifest' }
           Set-Content -LiteralPath $manifestPath -Value $entries -Encoding ascii
 
+      - name: Download previous installer for upgrade and rollback validation
+        if: env.B_BUILD_TYPE == 'Release' && inputs.upgrade_from_run_id != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUTLEAP_UPGRADE_FROM_RUN_ID: ${{ inputs.upgrade_from_run_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:INPUTLEAP_UPGRADE_FROM_RUN_ID -notmatch '^\d+$') { throw 'upgrade_from_run_id must be a numeric GitHub Actions run ID' }
+          $sourceRunJson = gh run view $env:INPUTLEAP_UPGRADE_FROM_RUN_ID --repo $env:GITHUB_REPOSITORY --json status,conclusion,headBranch,headSha,event,workflowName
+          if ($LASTEXITCODE -ne 0) { throw 'Could not inspect the previous workflow run' }
+          $sourceRun = $sourceRunJson | ConvertFrom-Json
+          if ($sourceRun.status -ne 'completed' -or $sourceRun.conclusion -ne 'success' -or $sourceRun.headBranch -ne 'master' -or $sourceRun.workflowName -ne 'Build tests') {
+            throw 'Previous installer run must be a successful Build tests run from the fork master branch'
+          }
+          if ($sourceRun.event -notin @('workflow_dispatch', 'release')) { throw 'Previous installer must come from a Release or workflow_dispatch run' }
+          $comparison = gh api "repos/$env:GITHUB_REPOSITORY/compare/$($sourceRun.headSha)...$env:GITHUB_SHA" --jq .status
+          if ($LASTEXITCODE -ne 0 -or $comparison -notin @('ahead', 'identical')) { throw 'Previous installer commit is not an ancestor of the commit being validated' }
+          $previousDir = Join-Path $PWD 'build\previous-installer'
+          New-Item -ItemType Directory -Force -Path $previousDir | Out-Null
+          gh run download $env:INPUTLEAP_UPGRADE_FROM_RUN_ID --repo $env:GITHUB_REPOSITORY --dir $previousDir --name 'windows-installer-Windows Qt6'
+          if ($LASTEXITCODE -ne 0) { throw "Failed to download Windows installer artifact from run $env:INPUTLEAP_UPGRADE_FROM_RUN_ID" }
+          $previousInstaller = Get-ChildItem -LiteralPath $previousDir -File -Filter 'InputLeapSetup-*.exe'
+          if ($previousInstaller.Count -ne 1) { throw "Expected exactly one previous installer, found $($previousInstaller.Count)" }
+          $manifest = Join-Path $previousDir 'SHA256SUMS.txt'
+          if (-not (Test-Path -LiteralPath $manifest)) { throw 'Previous installer artifact has no SHA256SUMS.txt' }
+          $match = Select-String -LiteralPath $manifest -Pattern ('^([0-9a-fA-F]{64})\s+' + [regex]::Escape($previousInstaller[0].Name) + '$')
+          if ($null -eq $match) { throw 'Previous installer is not covered by SHA256SUMS.txt' }
+          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $previousInstaller[0].FullName).Hash
+          if ($actualHash -ne $match.Matches[0].Groups[1].Value) { throw 'Previous installer SHA-256 does not match its manifest' }
+          "INPUTLEAP_PREVIOUS_INSTALLER=$($previousInstaller[0].FullName)" >> $env:GITHUB_ENV
+
       - name: Smoke-test Windows installer lifecycle
         if: env.B_BUILD_TYPE == 'Release'
         shell: pwsh
@@ -548,30 +587,59 @@ jobs:
           Set-Content -LiteralPath $sentinel -Value 'preserve shared state on uninstall'
           $silentArgs = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-')
 
-          foreach ($attempt in 1..2) {
-            $install = Start-Process -FilePath $installer.FullName -ArgumentList $silentArgs -Wait -PassThru
-            if ($install.ExitCode -ne 0) { throw "Installer attempt $attempt failed with exit code $($install.ExitCode)" }
-            if (-not (Test-Path (Join-Path $installDir 'input-leap-tauri.exe'))) { throw 'Tauri UI missing after install' }
-            if (-not (Test-Path (Join-Path $installDir 'input-leap.exe'))) { throw 'C++ compatibility UI missing after install' }
-            if (-not (Test-Path (Join-Path $installDir 'input-leaps.exe'))) { throw 'InputLeap server runtime missing after install' }
-            if (-not (Test-Path (Join-Path $installDir 'input-leapc.exe'))) { throw 'InputLeap client runtime missing after install' }
-            if (-not (Test-Path (Join-Path $installDir 'input-leapd.exe'))) { throw 'InputLeap daemon missing after install' }
-            if (-not (Test-Path (Join-Path $installDir 'LICENSE.txt'))) { throw 'Project license missing after install' }
-            if (-not (Test-Path (Join-Path $installDir 'License.rtf'))) { throw 'Installer license text missing after install' }
-            if (-not (Test-Path (Join-Path $installDir 'THIRD_PARTY_NOTICES.md'))) { throw 'Third-party notices missing after install' }
+          function Assert-InstalledPackage([string]$expectedRuntimeHash = '') {
+            foreach ($file in @('input-leap-tauri.exe', 'input-leap.exe', 'input-leaps.exe', 'input-leapc.exe', 'input-leapd.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md')) {
+              if (-not (Test-Path (Join-Path $installDir $file))) { throw "Required installed file missing: $file" }
+            }
             $service = Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue
             if ($null -eq $service) { throw 'InputLeap service missing after install' }
             if ($service.Status -ne 'Running') { throw "InputLeap service did not start after install: $($service.Status)" }
+            if ($expectedRuntimeHash) {
+              $installedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $installDir 'input-leapd.exe')).Hash
+              if ($installedHash -ne $expectedRuntimeHash) { throw 'Installed daemon hash does not match the expected package' }
+            }
           }
 
-          $uninstaller = Join-Path $installDir 'unins000.exe'
-          if (-not (Test-Path $uninstaller)) { throw 'Uninstaller missing after install' }
-          $remove = Start-Process -FilePath $uninstaller -ArgumentList $silentArgs -Wait -PassThru
-          if ($remove.ExitCode -ne 0) { throw "Uninstaller failed with exit code $($remove.ExitCode)" }
-          if (Test-Path (Join-Path $installDir 'input-leap-tauri.exe')) { throw 'Tauri application files remain after uninstall' }
-          if (Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue) { throw 'InputLeap service remains after uninstall' }
-          if (Get-NetFirewallRule -DisplayName 'InputLeap Listener' -ErrorAction SilentlyContinue) { throw 'InputLeap listener firewall rule remains after uninstall' }
-          if (Get-NetFirewallRule -DisplayName 'InputLeap File Transfer' -ErrorAction SilentlyContinue) { throw 'InputLeap file-transfer firewall rule remains after uninstall' }
+          function Install-Package([string]$packagePath, [string]$label) {
+            $result = Start-Process -FilePath $packagePath -ArgumentList $silentArgs -Wait -PassThru
+            if ($result.ExitCode -ne 0) { throw "$label installer failed with exit code $($result.ExitCode)" }
+            Assert-InstalledPackage
+          }
+
+          function Uninstall-Package {
+            $uninstaller = Join-Path $installDir 'unins000.exe'
+            if (-not (Test-Path $uninstaller)) { throw 'Uninstaller missing after install' }
+            $remove = Start-Process -FilePath $uninstaller -ArgumentList $silentArgs -Wait -PassThru
+            if ($remove.ExitCode -ne 0) { throw "Uninstaller failed with exit code $($remove.ExitCode)" }
+            if (Test-Path (Join-Path $installDir 'input-leap-tauri.exe')) { throw 'Tauri application files remain after uninstall' }
+            for ($attempt = 0; $attempt -lt 30 -and (Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue); $attempt++) { Start-Sleep -Seconds 1 }
+            if (Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue) { throw 'InputLeap service remains after uninstall' }
+            if (Get-NetFirewallRule -DisplayName 'InputLeap Listener' -ErrorAction SilentlyContinue) { throw 'InputLeap listener firewall rule remains after uninstall' }
+            if (Get-NetFirewallRule -DisplayName 'InputLeap File Transfer' -ErrorAction SilentlyContinue) { throw 'InputLeap file-transfer firewall rule remains after uninstall' }
+          }
+
+          if ($env:INPUTLEAP_PREVIOUS_INSTALLER) {
+            $previousPath = $env:INPUTLEAP_PREVIOUS_INSTALLER
+            Install-Package $previousPath 'Previous'
+            $previousInstalledHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $installDir 'input-leapd.exe')).Hash
+
+            Install-Package $installer.FullName 'Current upgrade'
+            $currentInstalledHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $installDir 'input-leapd.exe')).Hash
+            if ($currentInstalledHash -eq $previousInstalledHash) { throw 'Upgrade did not replace the previous runtime binary' }
+            Install-Package $installer.FullName 'Current repair/reinstall'
+            Assert-InstalledPackage $currentInstalledHash
+            Uninstall-Package
+
+            Install-Package $previousPath 'Rollback'
+            Assert-InstalledPackage $previousInstalledHash
+            Uninstall-Package
+          } else {
+            foreach ($attempt in 1..2) {
+              Install-Package $installer.FullName "Installer attempt $attempt"
+            }
+            Uninstall-Package
+          }
+
           if (-not (Test-Path $sentinel)) { throw 'Uninstall removed shared ProgramData; user state must be preserved' }
           Remove-Item -LiteralPath $sentinel -Force
 
