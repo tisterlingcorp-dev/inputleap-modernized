@@ -82,6 +82,7 @@ jobs:
                   libxtst-dev \
                   libxkbcommon-dev \
                   libglib2.0-dev \
+                  python3-cryptography \
                   ninja-build \
                   python-is-python3
 
@@ -367,6 +368,13 @@ jobs:
           path: input-leap
           submodules: recursive
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Python test dependencies
+        run: python3 -m pip install --disable-pip-version-check --requirement input-leap/tools/requirements-test.txt
+
       - name: Setup the build
         run: |
           cmake -DCMAKE_BUILD_TYPE="${B_BUILD_TYPE}" -S input-leap -B build -G Ninja \
@@ -418,6 +426,9 @@ jobs:
           path: input-leap
           submodules: recursive
 
+      - name: Install Python test dependencies
+        run: python -m pip install --disable-pip-version-check --requirement input-leap/tools/requirements-test.txt
+
       - name: Download Bonjour SDK-like
         id: bonjour
         run: |
@@ -460,7 +471,10 @@ jobs:
 
       - name: Run build system
         run: |
+          cmake --build build --config $env:B_BUILD_TYPE --target input-leap-tauri
+          if ($LASTEXITCODE -ne 0) { throw "Tauri controller build failed with exit code $LASTEXITCODE" }
           cmake --build build --config $env:B_BUILD_TYPE --target install
+          if ($LASTEXITCODE -ne 0) { throw "CMake install failed with exit code $LASTEXITCODE" }
           $env:QT_QPA_PLATFORM = "windows"
           ctest --test-dir build -C $env:B_BUILD_TYPE --output-on-failure
 

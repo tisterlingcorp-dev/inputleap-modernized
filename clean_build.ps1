@@ -53,6 +53,10 @@ if ($iscc_executable -eq $null) {
     }
 }
 
+if ($iscc_executable -eq $null -or -not (Test-Path -LiteralPath $iscc_executable)) {
+    throw "Could not find Inno Setup compiler (ISCC.exe)"
+}
+
 $vswhere_path = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe";
 if (Test-Path -LiteralPath $vswhere_path) {
     $vs_installation_path = & $vswhere_path -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath;
@@ -160,12 +164,24 @@ try {
     }
 
     & $cmake_executable @cmake_config_args
+    if ($LASTEXITCODE -ne 0) {
+        throw "CMake configuration failed with exit code $LASTEXITCODE"
+    }
+
+    & $cmake_executable --build . --parallel --config $build_type --target input-leap-tauri
+    if ($LASTEXITCODE -ne 0) {
+        throw "Tauri controller build failed with exit code $LASTEXITCODE"
+    }
 
     & $cmake_executable --build . --parallel --config $build_type --target install
-    if ($iscc_executable -eq $null -or -not (Test-Path -LiteralPath $iscc_executable)) {
-        throw "Could not find Inno Setup compiler (ISCC.exe)";
+    if ($LASTEXITCODE -ne 0) {
+        throw "CMake build/install failed with exit code $LASTEXITCODE"
     }
+
     & $iscc_executable /Qp installer-inno\input-leap.iss
+    if ($LASTEXITCODE -ne 0) {
+        throw "Inno Setup failed with exit code $LASTEXITCODE"
+    }
 } finally {
     popd
 }

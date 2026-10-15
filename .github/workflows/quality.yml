@@ -44,6 +44,7 @@ jobs:
 
       - name: Test
         env:
+          QT_QPA_PLATFORM: offscreen
           # Legacy network integration fixtures still retain connection objects
           # at process exit. ASan/UBSan remain strict; LSan gets a separate
           # cleanup phase instead of blocking this first quality gate.

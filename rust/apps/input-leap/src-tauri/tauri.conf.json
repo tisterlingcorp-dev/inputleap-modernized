@@ -23,6 +23,6 @@
   },
   "bundle": {
     "active": true,
-    "icon": ["icons/input-leap.png", "icons/input-leap.ico"]
+    "icon": ["icons/input-leap.png", "icons/input-leap-dib.ico"]
   }
 }

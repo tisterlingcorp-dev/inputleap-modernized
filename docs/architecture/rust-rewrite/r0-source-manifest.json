@@ -7,7 +7,7 @@
   "snapshotKind": "dirty-working-tree-content-manifest",
   "branchAtFreeze": "fix/tls-rejected-socket-cleanup",
   "pathCount": 79,
-  "contentDigest": "18630998c97ed3872c66dcf13f7c457417680c8bc89c4c616a8219c95bce3686",
+  "contentDigest": "1d2bc91e468d166ad4b2162c4ccebaf9d33fba4d6b41f2edc9ad17a36785bd6c",
   "files": [
     {
       "path": ".gitignore",
@@ -29,9 +29,9 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 14958,
+      "size": 16419,
       "hashMode": "canonical-lf",
-      "sha256": "24a528a9645663d0600d2a8ceb5fbfc1ed36a031955b565e9aeb96f6ed11b548"
+      "sha256": "04c415dc733d30a897271d41801fefedd97c3131c53c3b473edab0eab55fb4c8"
     },
     {
       "path": "cmake/ProjectOptions.cmake",
@@ -53,9 +53,9 @@
     },
     {
       "path": "src/gui/CMakeLists.txt",
-      "size": 37203,
+      "size": 37378,
       "hashMode": "canonical-lf",
-      "sha256": "506cef1db304397e8e23f7aa7f075c62417b0556fb7cac0903be5d8521241f54"
+      "sha256": "efc458bad8dc42647b0cb20461e10961d26d41e0746bfae481f8db80f445a4ca"
     },
     {
       "path": "src/gui/src/FileTransferService.cpp",
@@ -455,9 +455,9 @@
     },
     {
       "path": "src/test/unittests/CMakeLists.txt",
-      "size": 5545,
+      "size": 5769,
       "hashMode": "canonical-lf",
-      "sha256": "b5535e3f1d5ab1ff91ee26032221c85854943a0c1a076a7cef680da4726b67ab"
+      "sha256": "1c856fe3c69828fe0e4a4402fcbb6aea488a082bc7dcec7552be7916f13ee148"
     },
     {
       "path": "src/test/unittests/inputleap/ProtocolFixtureEmitterTests.cpp",

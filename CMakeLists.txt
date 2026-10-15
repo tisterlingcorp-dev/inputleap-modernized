@@ -40,6 +40,7 @@ set (CMAKE_CXX_STANDARD 20)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+file (MAKE_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 
 if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions (-DNDEBUG)
@@ -336,17 +337,15 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
                 set(INPUTLEAP_TAURI_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/rust/apps/input-leap/src-tauri/Cargo.toml")
                 set(INPUTLEAP_TAURI_BINARY "${CMAKE_CURRENT_SOURCE_DIR}/rust/apps/input-leap/src-tauri/target/release/input-leap-tauri.exe")
                 if(INPUTLEAP_CARGO_EXECUTABLE AND EXISTS "${INPUTLEAP_TAURI_MANIFEST}")
-                        add_custom_command(
-                                OUTPUT "${INPUTLEAP_TAURI_BINARY}"
+                        add_custom_target(input-leap-tauri
                                 COMMAND "${INPUTLEAP_CARGO_EXECUTABLE}" build --release --locked --manifest-path "${INPUTLEAP_TAURI_MANIFEST}"
                                 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                                DEPENDS "${INPUTLEAP_TAURI_MANIFEST}" "${CMAKE_CURRENT_SOURCE_DIR}/rust/apps/input-leap/src-tauri/src/main.rs" "${CMAKE_CURRENT_SOURCE_DIR}/rust/apps/input-leap/ui/index.html"
+                                BYPRODUCTS "${INPUTLEAP_TAURI_BINARY}"
                                 COMMENT "Building the Input Leap Tauri controller"
                                 VERBATIM)
-                        add_custom_target(input-leap-tauri ALL DEPENDS "${INPUTLEAP_TAURI_BINARY}")
                         install(PROGRAMS "${INPUTLEAP_TAURI_BINARY}" DESTINATION .)
                 else()
-                        message(WARNING "Cargo or the Tauri manifest is unavailable; the Windows package will not include input-leap-tauri.exe")
+                        message(FATAL_ERROR "The Windows package requires Cargo and the Tauri manifest; refusing to build an installer without input-leap-tauri.exe")
                 endif()
         endif()
         set(INPUTLEAP_WIX_VERSION "${INPUTLEAP_VERSION_MAJOR}.${INPUTLEAP_VERSION_MINOR}.${INPUTLEAP_VERSION_PATCH}")

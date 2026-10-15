@@ -23,10 +23,11 @@ BuildRequires: desktop-file-utils
 BuildRequires: gcc-c++
 BuildRequires: pkgconfig(gmock)
 BuildRequires: pkgconfig(gtest)
+BuildRequires: pkgconfig(libpng)
+BuildRequires: pkgconfig(openssl) >= 3.0
 BuildRequires: pkgconfig(x11)
 BuildRequires: pkgconfig(xtst) pkgconfig(xinerama) pkgconfig(xrandr)
 BuildRequires: pkgconfig(ice) pkgconfig(sm)
-BuildRequires: pkgconfig(openssl)
 BuildRequires: pkgconfig(Qt6Core)
 BuildRequires: pkgconfig(Qt6Widgets)
 BuildRequires: pkgconfig(Qt6Network)
@@ -34,6 +35,7 @@ BuildRequires: pkgconfig(Qt6Linguist)
 BuildRequires: make
 BuildRequires: pkgconfig(libei-1.0)
 BuildRequires: pkgconfig(libportal) >= 0.8
+BuildRequires: python3-cryptography
 
 %description
 InputLeap allows you to share one mouse and keyboard between multiple computers.
