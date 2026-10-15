@@ -35,6 +35,7 @@
 #include "base/Log.h"
 #include "base/EventQueue.h"
 #include "base/EventQueueTimer.h"
+#include "io/filesystem.h"
 
 #include <gtest/gtest.h>
 
@@ -657,13 +658,19 @@ TEST_F(IpcTests, DaemonAppStartUsesRealRegistryWatchdogAndAckSocket)
         "\" --name " + injectedName + " --log \"" + requestedLog.string() + "\"";
     const auto validatedCommand = DaemonCommandPolicy::validateCommandLine(command, daemon);
     ASSERT_TRUE(validatedCommand.has_value());
+    const auto canonicalCore = inputleap::path_to_utf8(
+        std::filesystem::canonical(core));
+    const auto canonicalConfig = inputleap::path_to_utf8(
+        std::filesystem::canonical(config));
+    const auto canonicalProfile = inputleap::path_to_utf8(
+        std::filesystem::canonical(profile));
     const std::string expectedCommand =
-        core.string() + " --config \"" + config.string() +
+        canonicalCore + " --config \"" + canonicalConfig +
         "\" --name \"" + injectedName + "\" --profile-dir \"" +
-        profile.string() + "\"";
+        canonicalProfile + "\"";
     const std::vector<std::string> expectedArguments{
-        core.string(), "--config", config.string(), "--name", injectedName,
-        "--profile-dir", profile.string()};
+        canonicalCore, "--config", canonicalConfig, "--name", injectedName,
+        "--profile-dir", canonicalProfile};
 
     m_events.add_handler(EventType::IPC_CLIENT_CONNECTED, &gui,
                          [&](const Event&) {

@@ -433,8 +433,18 @@ jobs:
           path: input-leap
           submodules: recursive
 
+      - name: Select Python interpreter
+        shell: pwsh
+        run: |
+          $pythonExecutable = (python -c "import sys; print(sys.executable)").Trim()
+          if (-not (Test-Path -LiteralPath $pythonExecutable)) { throw "Python interpreter not found: $pythonExecutable" }
+          "INPUTLEAP_PYTHON_EXECUTABLE=$pythonExecutable" >> $env:GITHUB_ENV
+
       - name: Install Python test dependencies
-        run: python -m pip install --disable-pip-version-check --requirement input-leap/tools/requirements-test.txt
+        shell: pwsh
+        run: |
+          & $env:INPUTLEAP_PYTHON_EXECUTABLE -m pip install --disable-pip-version-check --requirement input-leap/tools/requirements-test.txt
+          if ($LASTEXITCODE -ne 0) { throw "Python test dependency installation failed with exit code $LASTEXITCODE" }
 
       - name: Download Bonjour SDK-like
         id: bonjour
@@ -470,6 +480,7 @@ jobs:
 
           cmake -S ..\input-leap -G "$env:CMAKE_GEN" -A x64 -D CMAKE_BUILD_TYPE=$B_BUILD_TYPE `
             -DINPUTLEAP_VERSION_DESC=${{ (env.B_BUILD_TYPE == 'Release') && 'release' || 'git' }} `
+            -DINPUTLEAP_PYTHON_EXECUTABLE="$env:INPUTLEAP_PYTHON_EXECUTABLE" `
             -DDNSSD_LIB="$env:BONJOUR_SDK_HOME\Lib\x64\dnssd.lib" -D CMAKE_INSTALL_PREFIX=input-leap-install
         env:
           VS_PATH: '%ProgramFiles%\Microsoft Visual Studio\2022'

@@ -184,6 +184,11 @@ protected:
         std::ofstream(path, std::ios::binary).put('\0');
     }
 
+    static std::string canonicalPath(const std::filesystem::path& path)
+    {
+        return path_to_utf8(std::filesystem::canonical(path));
+    }
+
     std::filesystem::path root_;
     std::filesystem::path daemonDir_;
     std::filesystem::path otherDir_;
@@ -256,8 +261,10 @@ TEST_F(DaemonCommandPolicyTests, AllowsPersistedServerCommandWithValidArguments)
         command, daemonDir_ / "input-leapd.exe");
     ASSERT_TRUE(validated.has_value());
     EXPECT_EQ(validated->arguments.front(),
-              path_to_utf8(daemonDir_ / "input-leaps.exe"));
-    EXPECT_EQ(validated->command, command);
+              canonicalPath(daemonDir_ / "input-leaps.exe"));
+    EXPECT_EQ(validated->command,
+              "\"" + canonicalPath(daemonDir_ / "input-leaps.exe") +
+              "\" --address 127.0.0.1");
 }
 
 TEST_F(DaemonCommandPolicyTests,
@@ -276,7 +283,9 @@ TEST_F(DaemonCommandPolicyTests,
 
     ASSERT_TRUE(validated.has_value());
     EXPECT_EQ(validated->command,
-              command + " --profile-dir \"" + profile.string() + "\"");
+              "\"" + canonicalPath(daemonDir_ / "input-leaps.exe") +
+              "\" --config \"" + canonicalPath(config) +
+              "\" --profile-dir \"" + canonicalPath(profile) + "\"");
 }
 
 TEST_F(DaemonCommandPolicyTests,
@@ -296,9 +305,9 @@ TEST_F(DaemonCommandPolicyTests,
 
     ASSERT_TRUE(validated.has_value());
     EXPECT_EQ(validated->command,
-              "\"" + (daemonDir_ / "input-leaps.exe").string() +
-              "\" --config \"" + config.string() +
-              "\" --profile-dir \"" + profile.string() + "\"");
+              "\"" + canonicalPath(daemonDir_ / "input-leaps.exe") +
+              "\" --config \"" + canonicalPath(config) +
+              "\" --profile-dir \"" + canonicalPath(profile) + "\"");
 }
 
 TEST_F(DaemonCommandPolicyTests,
@@ -337,9 +346,9 @@ TEST_F(DaemonCommandPolicyTests,
 
     ASSERT_TRUE(validated.has_value());
     EXPECT_EQ(validated->command,
-              "\"" + (daemonDir_ / "input-leaps.exe").string() +
-              "\" --config \"" + config.string() +
-              "\" --profile-dir \"" + profile.string() + "\"");
+              "\"" + canonicalPath(daemonDir_ / "input-leaps.exe") +
+              "\" --config \"" + canonicalPath(config) +
+              "\" --profile-dir \"" + canonicalPath(profile) + "\"");
 }
 
 TEST_F(DaemonCommandPolicyTests,
@@ -358,7 +367,7 @@ TEST_F(DaemonCommandPolicyTests,
     ASSERT_EQ(validated->arguments.size(), 3u);
     EXPECT_EQ(validated->arguments[2], injectedName);
     EXPECT_EQ(validated->command,
-              "\"" + (daemonDir_ / "input-leaps.exe").string() +
+              "\"" + canonicalPath(daemonDir_ / "input-leaps.exe") +
               "\" --name \"" + injectedName + "\"");
 
     const auto shell = LoadLibraryW(L"shell32.dll");
