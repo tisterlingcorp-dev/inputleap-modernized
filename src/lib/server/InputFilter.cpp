@@ -432,9 +432,11 @@ std::string InputFilter::KeyboardBroadcastAction::format() const
         return inputleap::string::sprintf("%s(%s)", s_name, s_mode[m_mode]);
     }
     else {
-        return inputleap::string::sprintf("%s(%s,%.*s)", s_name, s_mode[m_mode],
-                            m_screens.size() - 2,
-                            m_screens.c_str() + 1);
+        const std::string screen_names = m_screens.size() >= 2
+            ? m_screens.substr(1, m_screens.size() - 2)
+            : std::string{};
+        return inputleap::string::sprintf("%s(%s,%s)", s_name, s_mode[m_mode],
+                                          screen_names.c_str());
     }
 }
 

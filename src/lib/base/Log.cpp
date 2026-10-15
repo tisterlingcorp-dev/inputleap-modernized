@@ -130,13 +130,21 @@ Log::print(ELevel priority, const char* file, int line, const char* fmt, ...)
     // print the prefix to the buffer
     // do not prefix time and file for kPRINT (CLOG_PRINT)
     if (priority != kPRINT) {
-        struct tm *tm;
+        struct tm tm_value{};
         time_t t;
         time(&t);
-        tm = localtime(&t);
+#ifdef SYSAPI_WIN32
+        if (localtime_s(&tm_value, &t) != 0) {
+#else
+        if (localtime_r(&t, &tm_value) == nullptr) {
+#endif
+            output(kERROR, "Failed to convert log timestamp");
+            return;
+        }
 
         offset = std::snprintf(buffer.data(), remaining, "[%04i-%02i-%02iT%02i:%02i:%02i] %s: ",
-                               tm->tm_year + 1900, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec,
+                               tm_value.tm_year + 1900, tm_value.tm_mon+1, tm_value.tm_mday,
+                               tm_value.tm_hour, tm_value.tm_min, tm_value.tm_sec,
                                g_priority[priority]);
         if (offset == -1) {
             output(kERROR, "Failed to print to log");
