@@ -15,6 +15,10 @@ on:
         description: 'Build Release binaries'
         required: false
         type: boolean
+      include_legacy_platforms:
+        description: 'Also build Linux, macOS, FreeBSD and Flatpak (outside the Windows release scope)'
+        required: false
+        type: boolean
 
 # Set the build type here
 env:
@@ -23,6 +27,7 @@ env:
 
 jobs:
   linux-build:
+    if: ${{ inputs.include_legacy_platforms }}
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     container: ${{ matrix.os }}
@@ -242,6 +247,7 @@ jobs:
           if-no-files-found: error
 
   linux-rpm:
+    if: ${{ inputs.include_legacy_platforms }}
     name: ${{ matrix.os }}
     runs-on: ubuntu-latest
     container: ${{ matrix.os }}
@@ -297,6 +303,7 @@ jobs:
             rpms/**/*.rpm
 
   mac-build:
+    if: ${{ inputs.include_legacy_platforms }}
     name: ${{ matrix.name}}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -500,6 +507,7 @@ jobs:
           if-no-files-found: error
 
   freebsd-build:
+    if: ${{ inputs.include_legacy_platforms }}
     name: freebsd-14-3
     runs-on: ubuntu-latest
 
@@ -537,6 +545,7 @@ jobs:
           cmake --build . --parallel
 
   flatpak:
+    if: ${{ inputs.include_legacy_platforms }}
     runs-on: ubuntu-latest
     container:
       image: bilelmoussaoui/flatpak-github-actions:kde-6.7
