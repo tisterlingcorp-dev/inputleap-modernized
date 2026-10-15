@@ -10,6 +10,7 @@
 #include <QSignalSpy>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QElapsedTimer>
 
 namespace {
 const QUuid inviterUuid("{11111111-1111-4111-8111-111111111111}");
