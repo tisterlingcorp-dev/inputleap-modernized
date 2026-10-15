@@ -72,7 +72,6 @@ class QCheckBox;
 class QRadioButton;
 class QTemporaryFile;
 class QMessageBox;
-class QAbstractButton;
 class QDialog;
 class QTableWidget;
 class QLabel;
@@ -91,8 +90,6 @@ class LogDialog;
 class QInputLeapApplication;
 class SetupWizard;
 class ZeroconfService;
-class DataDownloader;
-class CommandProcess;
 class SslCertificate;
 class FileTransferService;
 class FileTransferController;
@@ -198,7 +195,6 @@ public slots:
         void stop_cmd_app();
         void logOutput();
         void logError();
-        void bonjourInstallFinished();
         void showLogWindow();
 
     protected:
@@ -262,7 +258,6 @@ public slots:
         bool isServiceRunning();
 #endif
         bool isBonjourRunning();
-        void downloadBonjour();
         void promptAutoConfig();
         void checkFingerprint(const QString& line);
         void restartAfterFingerprintAcceptance();
@@ -417,12 +412,8 @@ public slots:
         std::function<void()> m_UpdateExitOverride;
         std::function<QDateTime()> m_UpdateNowUtcOverride;
         ZeroconfService* m_pZeroconfService;
-        DataDownloader* m_pDataDownloader;
-        QMessageBox* m_DownloadMessageBox;
-        QAbstractButton* m_pCancelButton;
         QMutex m_UpdateZeroconfMutex;
         bool m_SuppressAutoConfigWarning;
-        CommandProcess* m_BonjourInstall;
         bool m_SuppressEmptyServerWarning;
         bool m_SuppressAutomaticStartOnce = false;
         qRuningState m_ExpectedRunningState;
@@ -482,6 +473,5 @@ private slots:
     void on_m_pCheckBoxAutoConfig_toggled(bool checked);
     void comboServerList_currentIndexChanged(QString );
     void on_m_pButtonReload_clicked();
-    void installBonjour();
 
 };

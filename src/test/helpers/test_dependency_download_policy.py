@@ -31,6 +31,28 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
                 self.assertGreaterEqual(verification, 0, "Bonjour archive hash must be verified")
                 self.assertGreater(extraction, verification, "hash verification must precede extraction")
 
+    def test_application_does_not_download_or_execute_legacy_bonjour_installer(self):
+        main_window = (ROOT / "src" / "gui" / "src" / "MainWindow.cpp").read_text(
+            encoding="utf-8"
+        )
+        main_window_header = (ROOT / "src" / "gui" / "src" / "MainWindow.h").read_text(
+            encoding="utf-8"
+        )
+
+        for forbidden in (
+            "binaries.symless.com/bonjour",
+            "downloadBonjour",
+            "installBonjour",
+            "m_BonjourInstall",
+            "DataDownloader",
+            "CommandProcess",
+            "Bonjour.msi",
+            "msiexec",
+        ):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, main_window)
+                self.assertNotIn(forbidden, main_window_header)
+
 
 if __name__ == "__main__":
     unittest.main()

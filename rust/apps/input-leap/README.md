@@ -4,23 +4,24 @@ This directory contains the modern desktop interface for the InputLeap Modernize
 
 ## Runtime boundary
 
-The application is not yet a standalone replacement for Input Leap. It provides diagnostic topology, authenticated daemon status, authenticated runtime reload and sanitized logs, while the production input-sharing process is still the C++ compatibility runtime:
+The application is not yet a standalone replacement for Input Leap. The Tauri shell manages and displays the production C++ runtime; it does not replace the input-sharing engine:
 
 - Windows: `input-leaps.exe`, supervised by `input-leapd.exe` outside the Tauri process;
 - Linux X11: `input-leapc`;
 - experimental status provider: `rust/bins/input-leap-agent` or `INPUT_LEAP_AGENT_PATH`.
 
-The application must not claim keyboard/mouse parity from a successful UI launch alone. Real sharing still requires the C++ runtime and a physical two-machine validation.
+The Tauri UI and runtime are separate processes. A successful UI launch, running daemon, or TCP connection alone does not prove keyboard/mouse, clipboard, or file-transfer parity. Those capabilities still require the C++ runtime and physical two-machine validation.
 
 ## Commands exposed to the frontend
 
-The first authenticated control cut exposes narrowly scoped commands for:
+The Tauri bridge currently exposes narrowly scoped commands for:
 
 - diagnostic network topology and sanitized logs;
 - authoritative runtime status through authenticated local daemon IPC;
-- runtime reload bound to the daemon's durably applied generation.
+- authenticated runtime start, stop, and reload through daemon IPC;
+- topology updates bound to the daemon's durably applied generation.
 
-Start and stop are intentionally absent from the Tauri bridge. Generic shell, process-control, filesystem and network access are not exposed to the frontend.
+The Tauri bridge does not yet provide peer discovery, human-confirmed pairing/revocation, or file/clipboard transfer controls. Discovery and transfers available through the legacy C++/Qt application are not automatically exposed by the Tauri UI. Do not treat discovery as authorization or claim full feature parity until those flows are integrated and validated. Generic shell, arbitrary process control, unrestricted filesystem access, and arbitrary network access are not exposed to the frontend.
 
 ## Local checks
 
