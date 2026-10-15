@@ -528,6 +528,71 @@ jobs:
           upload-artifact: false
           upload-release-assets: false
 
+      - name: Generate Rust workspace dependency SBOM
+        if: env.B_BUILD_TYPE == 'Release'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          file: .\rust\Cargo.lock
+          format: cyclonedx-json
+          output-file: .\build\installer-inno\bin\input-leap-rust-workspace.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate Tauri dependency SBOM
+        if: env.B_BUILD_TYPE == 'Release'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          file: .\rust\apps\input-leap\src-tauri\Cargo.lock
+          format: cyclonedx-json
+          output-file: .\build\installer-inno\bin\input-leap-tauri-dependencies.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate agent dependency SBOM
+        if: env.B_BUILD_TYPE == 'Release'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          file: .\rust\bins\input-leap-agent\Cargo.lock
+          format: cyclonedx-json
+          output-file: .\build\installer-inno\bin\input-leap-agent-dependencies.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate server dependency SBOM
+        if: env.B_BUILD_TYPE == 'Release'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          file: .\rust\bins\input-leap-server\Cargo.lock
+          format: cyclonedx-json
+          output-file: .\build\installer-inno\bin\input-leap-server-dependencies.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Validate dependency SBOM coverage
+        if: env.B_BUILD_TYPE == 'Release'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bomDir = Resolve-Path .\build\installer-inno\bin
+          foreach ($name in @(
+            'input-leap-rust-workspace.cdx.json',
+            'input-leap-tauri-dependencies.cdx.json',
+            'input-leap-agent-dependencies.cdx.json',
+            'input-leap-server-dependencies.cdx.json'
+          )) {
+            $path = Join-Path $bomDir $name
+            if (-not (Test-Path -LiteralPath $path)) { throw "Missing dependency SBOM: $name" }
+            $bom = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+            if ($bom.bomFormat -ne 'CycloneDX' -or -not $bom.specVersion) { throw "Invalid CycloneDX SBOM: $name" }
+            $components = @($bom.components)
+            if ($components.Count -lt 10) { throw "SBOM has implausibly few components: $name ($($components.Count))" }
+            $purls = @($components | Where-Object { $_.purl }).Count
+            if ($purls -lt 10) { throw "SBOM has insufficient package identifiers: $name ($purls)" }
+            $edges = @($bom.dependencies | Where-Object { @($_.dependsOn).Count -gt 0 }).Count
+            if ($edges -lt 5) { throw "SBOM has insufficient dependency relationships: $name ($edges)" }
+            Write-Host "$name components=$($components.Count) purls=$purls dependency_nodes=$(@($bom.dependencies).Count) edges=$edges"
+          }
+
       - name: Generate installer SHA-256 manifest
         if: env.B_BUILD_TYPE == 'Release'
         shell: pwsh

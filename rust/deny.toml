@@ -1,4 +1,6 @@
 [graph]
+# Dependency policy is scoped to the supported Windows x64 delivery target.
+targets = ["x86_64-pc-windows-msvc"]
 all-features = true
 no-default-features = false
 

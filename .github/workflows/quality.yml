@@ -52,6 +52,34 @@ jobs:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
         run: xvfb-run -a ctest --preset asan
 
+  rust-dependency-audit:
+    name: Rust dependency audit
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked --version 0.20.2
+
+      - name: Check Rust workspace advisories, licenses, bans, and sources
+        working-directory: rust
+        run: cargo deny check
+
+      - name: Check Windows Tauri advisories, licenses, bans, and sources
+        working-directory: rust/apps/input-leap/src-tauri
+        run: cargo deny check
+
+      - name: Check standalone agent and server dependency policies
+        shell: pwsh
+        run: |
+          foreach ($workspace in @('rust/bins/input-leap-agent', 'rust/bins/input-leap-server')) {
+            Push-Location $workspace
+            try { cargo deny check; if ($LASTEXITCODE -ne 0) { throw "cargo-deny failed for $workspace" } }
+            finally { Pop-Location }
+          }
+
   clang-tidy:
     name: clang-tidy
     runs-on: ubuntu-24.04
