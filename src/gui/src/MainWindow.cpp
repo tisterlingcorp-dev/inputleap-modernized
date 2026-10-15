@@ -4472,7 +4472,7 @@ void MainWindow::startFileTransfer(const QString& host,
     auto* progress = new QProgressDialog(tr("Preparing transfer..."), tr("Cancel"), 0, 100, this);
     progress->setWindowTitle(title);
     progress->setWindowModality(Qt::WindowModal);
-    progress->setMinimumDuration(queueId.isEmpty()?0:std::numeric_limits<int>::max());
+    progress->setMinimumDuration(queueId.isEmpty()?0:(std::numeric_limits<int>::max)());
     progress->setAttribute(Qt::WA_DeleteOnClose, false);
     if(queueId.isEmpty())progress->show();
     ensureTransferQueueDialog();
