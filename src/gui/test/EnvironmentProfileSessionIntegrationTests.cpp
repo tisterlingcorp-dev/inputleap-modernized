@@ -52,6 +52,13 @@
 #include <utility>
 
 namespace {
+
+#if !defined(_WIN32)
+#define SKIP_WINDOWS_PRODUCT_INTEGRATION() \
+    GTEST_SKIP() << "Windows service/update integration is covered by Windows CI"
+#else
+#define SKIP_WINDOWS_PRODUCT_INTEGRATION() do {} while (false)
+#endif
 constexpr quint16 kInstalledFileTransferPort = 24810;
 
 SecureCredentialStore makeTestCredentialStore()
@@ -1236,6 +1243,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
 TEST(EnvironmentProfileSessionIntegrationTests,
      InstallableUpdateDownloadsStopsOnTypedAckAndLaunchesBoundHelper)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("update-install.ini")),
@@ -1345,6 +1353,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
 TEST(EnvironmentProfileSessionIntegrationTests,
      MatchingUpdateResultIsConsumedOnceAndCannotBeRestoredForReplay)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     const QString settingsPath = directory.filePath(QStringLiteral("update-result.ini"));
@@ -1646,6 +1655,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
 TEST(EnvironmentProfileSessionIntegrationTests,
      TamperedPendingResultPathCannotReadOrDeleteFileOutsideUpdateStaging)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     const QString settingsPath = directory.filePath(QStringLiteral("path-tamper.ini"));
@@ -1821,6 +1831,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
 TEST(EnvironmentProfileSessionIntegrationTests,
      NewGuiPromotesSuccessfulPreliminaryUpdateAfterCompiledVersionConfirmation)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     const QString settingsPath = directory.filePath(QStringLiteral("result-race.ini"));
@@ -2159,6 +2170,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
 TEST(EnvironmentProfileSessionIntegrationTests,
      AuthenticatedTerminalResultDuringCleanupRetryIsRevalidatedAndConsumed)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     const QString settingsPath = directory.filePath(QStringLiteral("cleanup-retry-result.ini"));
@@ -2425,6 +2437,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
 TEST(EnvironmentProfileSessionIntegrationTests,
      AuthenticatedTerminalCleanupRetriesWithoutBecomingPermanentlyPending)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("terminal-cleanup-retry.ini")),
@@ -3090,6 +3103,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, ConnectedDashboardDoesNotClaimSe
 
 TEST(EnvironmentProfileSessionIntegrationTests, DaemonTransportLossClearsConnectedDashboardState)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("daemon-transport-loss.ini")),
@@ -3233,6 +3247,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, RecoveryRequiredIsActionableInMa
 
 TEST(EnvironmentProfileSessionIntegrationTests, RuntimeInvalidationClosesEveryLateConsumer)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("main-window-session.ini")), QSettings::IniFormat);
@@ -3515,6 +3530,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, DesktopLaunchFailureRestoresDisc
 
 TEST(EnvironmentProfileSessionIntegrationTests, ServiceRejectionRestoresDisconnectedUiState)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-start-rejection.ini")),
@@ -3559,6 +3575,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, ServiceRejectionRestoresDisconne
 
 TEST(EnvironmentProfileSessionIntegrationTests, SuccessfulManualServiceStartPersistsStartedBefore)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-start-success.ini")),
@@ -3813,6 +3830,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, DesktopStopSurvivesReentrantFini
 
 TEST(EnvironmentProfileSessionIntegrationTests, ServiceStartTimeoutRestoresDisconnectedUiState)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-start-timeout.ini")),
@@ -3878,6 +3896,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, ServiceStartTimeoutRestoresDisco
 TEST(EnvironmentProfileSessionIntegrationTests,
      TransportLossDuringPendingServiceStartRequestsStopAndCannotRearmStart)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-start-transport-loss.ini")),
@@ -4217,6 +4236,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, NativeEmptyProfileStoreBootstrap
 
 TEST(EnvironmentProfileSessionIntegrationTests, BlockedStartupDoesNotPersistIdentityRegistryOrShutdownSettings)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("blocked-read-only.ini")),
@@ -4333,6 +4353,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, HiddenTrayMenuExposesEssentialWi
 
 TEST(EnvironmentProfileSessionIntegrationTests, InternalServerCannotStartWhenProfileLayoutReconciliationIsUnavailable)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("blocked-start.ini")),
@@ -4405,6 +4426,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, InternalServerCannotStartWhenPro
 
 TEST(EnvironmentProfileSessionIntegrationTests, ServiceStopRemainsPendingUntilNonceBoundAcknowledgement)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-stop.ini")),
@@ -4789,6 +4811,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
 
 TEST(EnvironmentProfileSessionIntegrationTests, ServiceRestartWaitsForStopAcknowledgementBeforeStarting)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-restart.ini")),
@@ -4856,6 +4879,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, ServiceRestartWaitsForStopAcknow
 
 TEST(EnvironmentProfileSessionIntegrationTests, FingerprintAcceptanceWaitsForServiceStopAndReconnectReadiness)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("fingerprint-restart.ini")), QSettings::IniFormat);
@@ -5136,6 +5160,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, FingerprintAcceptanceCannotRearm
 
 TEST(EnvironmentProfileSessionIntegrationTests, ServiceRestartHandlesSynchronousStopAcknowledgement)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-restart-sync-ack.ini")),
@@ -5194,6 +5219,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, ServiceRestartHandlesSynchronous
 
 TEST(EnvironmentProfileSessionIntegrationTests, ExplicitStopCancelsPendingServiceRestartIntent)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-restart-cancel.ini")),
@@ -5245,6 +5271,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, ExplicitStopCancelsPendingServic
 
 TEST(EnvironmentProfileSessionIntegrationTests, AutomaticReconnectWaitsForStopAcknowledgementBeforeStarting)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-reconnect.ini")),
@@ -5306,6 +5333,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, AutomaticReconnectWaitsForStopAc
 
 TEST(EnvironmentProfileSessionIntegrationTests, ExplicitStopCancelsAutomaticRestartAwaitingReconnect)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-reconnect-cancel.ini")),
@@ -5364,6 +5392,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, ExplicitStopCancelsAutomaticRest
 
 TEST(EnvironmentProfileSessionIntegrationTests, RuntimeInvalidationCancelsAutomaticRestartAwaitingReconnect)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("service-reconnect-invalidate.ini")),
@@ -5422,6 +5451,7 @@ TEST(EnvironmentProfileSessionIntegrationTests, RuntimeInvalidationCancelsAutoma
 
 TEST(EnvironmentProfileSessionIntegrationTests, InvalidPendingImportBlocksEveryRuntimeConsumer)
 {
+    SKIP_WINDOWS_PRODUCT_INTEGRATION();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("blocked-import.ini")),
