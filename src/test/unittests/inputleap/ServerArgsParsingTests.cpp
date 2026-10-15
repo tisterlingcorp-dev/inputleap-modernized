@@ -67,4 +67,11 @@ TEST(ServerArgsParsingTests, parseServerArgs_configArg_setConfigFile)
     EXPECT_EQ("mock_configFile", serverArgs.m_configFile);
 }
 
+TEST(ServerArgsParsingTests, clientCertificateVerificationIsEnabledByDefault)
+{
+    const ServerArgs serverArgs;
+
+    EXPECT_TRUE(serverArgs.check_client_certificates);
+}
+
 } // namespace inputleap

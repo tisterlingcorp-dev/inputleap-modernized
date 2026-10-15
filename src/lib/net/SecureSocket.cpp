@@ -319,6 +319,10 @@ SecureSocket::initSsl(bool server)
 bool SecureSocket::load_certificates(const inputleap::fs::path& path)
 {
     std::lock_guard<std::mutex> ssl_lock{ssl_mutex_};
+    if (m_ssl == nullptr || m_ssl->m_context == nullptr) {
+        showError("ssl context is unavailable");
+        return false;
+    }
     const std::string path_utf8 = inputleap::path_to_utf8(path);
 
     if (path.empty()) {
@@ -390,12 +394,13 @@ SecureSocket::initContext(bool server)
     SSL_METHOD* m = const_cast<SSL_METHOD*>(method);
     m_ssl->m_context = SSL_CTX_new(m);
 
-    // drop SSLv3 support
-    SSL_CTX_set_options(m_ssl->m_context, SSL_OP_NO_SSLv3);
-
     if (m_ssl->m_context == nullptr) {
-        showError("");
+        showError("could not create ssl context");
+        return;
     }
+
+    // Disable SSLv3 while retaining the protocol negotiation supported by existing peers.
+    SSL_CTX_set_options(m_ssl->m_context, SSL_OP_NO_SSLv3);
 
     if (security_level_ == ConnectionSecurityLevel::ENCRYPTED_AUTHENTICATED) {
         // We want to ask for peer certificate, but not verify it. If we don't ask for peer
@@ -485,8 +490,9 @@ SecureSocket::secureConnect(int socket)
     // note that load_certificates acquires ssl_mutex_
     if (!load_certificates(inputleap::DataDirectories::ssl_certificate_path())) {
         LOG_ERR("could not load client certificates");
-        // FIXME: this is fatal error, but we current don't disconnect because whole logic in this
-        // function needs to be cleaned up
+        isFatal(true);
+        disconnect();
+        return -1;
     }
 
     std::lock_guard<std::mutex> ssl_lock{ssl_mutex_};

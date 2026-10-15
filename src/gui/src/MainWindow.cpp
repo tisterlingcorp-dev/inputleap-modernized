@@ -108,6 +108,7 @@
 
 #if defined(Q_OS_WIN)
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <fcntl.h>
 #include <io.h>
@@ -1337,12 +1338,12 @@ void MainWindow::polishMainView()
     QSize available(880, 760);
     if (const auto* screen = QGuiApplication::primaryScreen())
         available = screen->availableGeometry().size() - QSize(32, 32);
-    available.setWidth(std::max(320, available.width()));
-    available.setHeight(std::max(320, available.height()));
-    const QSize initial(std::min(880, available.width()),
-                        std::min(760, available.height()));
-    setMinimumSize(std::min(640, initial.width()),
-                   std::min(480, initial.height()));
+    available.setWidth((std::max)(320, available.width()));
+    available.setHeight((std::max)(320, available.height()));
+    const QSize initial((std::min)(880, available.width()),
+                        (std::min)(760, available.height()));
+    setMinimumSize((std::min)(640, initial.width()),
+                   (std::min)(480, initial.height()));
     resize(initial);
     ui_->centralwidget->layout()->setContentsMargins(18, 14, 18, 16);
     ui_->centralwidget->layout()->setSpacing(14);
@@ -1791,8 +1792,8 @@ void MainWindow::open()
                 if (targetScreen == nullptr)
                     return;
                 const QRect available = targetScreen->availableGeometry().adjusted(16, 16, -16, -16);
-                const QSize targetSize(std::min(880, available.width()),
-                                       std::min(760, available.height()));
+                const QSize targetSize((std::min)(880, available.width()),
+                                       (std::min)(760, available.height()));
                 showNormal();
                 resize(targetSize);
                 move(available.center() - QPoint(width() / 2, height() / 2));
