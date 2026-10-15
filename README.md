@@ -2,7 +2,7 @@
 
 > **Unofficial fork.** This repository is not an official release of the Input Leap project and is not endorsed by its maintainers.
 
-InputLeap Modernized is an experimental Windows/Linux X11 fork of [Input Leap](https://github.com/input-leap/input-leap). It combines a Rust/Tauri desktop interface with the proven C++/Qt Input Leap runtime while the native Rust runtime is developed and validated.
+InputLeap Modernized is an experimental Windows-focused fork of [Input Leap](https://github.com/input-leap/input-leap). It combines a Rust/Tauri desktop interface with the existing C++/Qt Input Leap runtime. The C++ runtime remains responsible for production input and clipboard sharing; the Rust runtime is not yet its replacement.
 
 Current fork version: `3.7.3-modernized`
 Tauri application version: `0.1.3`
@@ -15,28 +15,26 @@ The migration is intentionally hybrid:
 Rust/Tauri UI
   ├─ status, topology, configuration and lifecycle controls
   └─ starts/monitors the existing runtime
-       ├─ input-leaps on Windows
-       └─ input-leapc on Linux X11
+       └─ input-leaps on Windows
 ```
 
 The C++/Qt runtime is still required for production keyboard, mouse and clipboard sharing. The Rust crates and agent contain protocol and platform migration work, but they do not yet replace every C++ runtime responsibility. Removing `src/`, CMake, Qt or the C++ executables now would break the working application.
 
 ## Supported scope
 
-This fork currently targets:
+The planned product and release acceptance target is:
 
 - Windows 10/11 x64;
-- Pop!_OS/Ubuntu-compatible Linux sessions running X11;
-- Windows ↔ Linux operation over the local network;
-- TLS/mTLS-protected Input Leap traffic on TCP port `24800`.
+- Windows ↔ Windows operation over the local network;
+- the existing C++/Qt runtime supervised by the Tauri interface.
 
-macOS and Wayland are outside the supported scope of this fork. Their inherited source may remain while the C++ compatibility runtime exists, but no support or validation is claimed.
+Linux build scripts and inherited cross-platform source remain in the repository, but Linux is not part of the planned product release or its acceptance criteria. macOS and Wayland are likewise outside the release scope. No platform support or security property should be inferred solely from the presence of source code; each release capability requires validation on the packaged build.
 
 ## Main functionality
 
-- keyboard and mouse sharing between Windows and Linux X11;
+- keyboard and mouse sharing through the existing C++/Qt runtime;
 - clipboard text, files, folders and images;
-- secure TLS/mTLS transport;
+- encrypted runtime transport with certificate-based peer trust;
 - topology and runtime status in the Tauri interface;
 - runtime start/stop controls;
 - fail-closed clipboard image conversion and hidden transfer staging;
@@ -50,7 +48,7 @@ macOS and Wayland are outside the supported scope of this fork. Their inherited 
 | `rust/bins` | experimental Rust executables and platform agents |
 | `rust/crates` | Rust protocol, transport and shared-domain crates |
 | `src` | current C++/Qt compatibility runtime |
-| `linux` | supported Linux/X11 build and packaging helpers |
+| `linux` | inherited Linux build and packaging helpers (not a release target) |
 | `docs/architecture/rust-rewrite` | active migration contracts and threat model |
 | `dist` | source packaging definitions; generated installers are not versioned |
 
@@ -102,13 +100,13 @@ Do not commit or publish:
 - runtime logs, screenshots, packet captures or transfer staging data;
 - generated installers, DLL bundles or build directories.
 
-Production operation requires TLS/mTLS. Do not use crypto-disable flags as a workaround. Review the active contracts in [`docs/architecture/rust-rewrite`](docs/architecture/rust-rewrite) before changing transport, trust, update or process-lifecycle behavior.
+Production operation must keep transport cryptography enabled. Do not use crypto-disable flags as a workaround. Certificate trust, device pairing and application authorization are distinct controls; do not describe a peer as securely paired unless the relevant control channel and data operation enforce that authorization. Review the active contracts in [`docs/architecture/rust-rewrite`](docs/architecture/rust-rewrite) before changing transport, trust, update or process-lifecycle behavior.
 
 ## Distribution status
 
-This checkout is maintained for private use while migration and license packaging are completed. Source publication may be possible under the terms below, but binary distribution requires a fresh dependency inventory, all applicable license texts/notices, corresponding-source compliance, relinkability where required, and review of generated installer contents.
+This checkout is maintained for private use while the Windows installer, security controls, clean-machine validation and license packaging are completed. Do not distribute binaries until a fresh dependency inventory, all applicable license texts/notices, corresponding-source compliance, relinkability where required, and generated installer contents have been reviewed.
 
-The Tauri license gate passes, but the full advisory gate currently reports unmaintained GTK3 and Unicode crates in Tauri's Linux dependency graph. Those transitive advisories have no safe direct upgrade in this dependency set and are not suppressed. This combination is accepted only for private use until the upstream Tauri/Linux stack provides a maintained replacement.
+Security and license checks must be evaluated against the Windows release dependency graph. Linux-only dependencies are not part of this release target, but remain documented in the source dependency inventory. Do not suppress an applicable Windows advisory without a documented review and mitigation.
 
 The repository intentionally does not contain a prebuilt Windows installer. Build outputs should be generated from a reviewed source revision and accompanied by a software bill of materials and the applicable third-party notices before distribution.
 
