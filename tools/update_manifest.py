@@ -180,10 +180,10 @@ def stable_package_metadata(path: Path) -> tuple[int, str]:
                            before.st_mtime_ns, before.st_ctime_ns)
         identity_after = (after.st_dev, after.st_ino, after.st_size,
                           after.st_mtime_ns, after.st_ctime_ns)
-        path_identity = (path_after.st_dev, path_after.st_ino, path_after.st_size,
-                         path_after.st_mtime_ns, path_after.st_ctime_ns)
+        path_identity = (path_after.st_dev, path_after.st_ino, path_after.st_size)
+        open_identity = identity_after[:3]
         if byte_count != before.st_size or identity_before != identity_after or \
-                identity_after != path_identity:
+                open_identity != path_identity:
             raise ValueError("package changed while its release metadata was being computed")
         return byte_count, digest.hexdigest()
     finally:

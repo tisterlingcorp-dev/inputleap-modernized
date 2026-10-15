@@ -75,6 +75,20 @@ class ManifestInputValidationTests(unittest.TestCase):
             self.assertEqual(size, 20)
             self.assertEqual(len(digest), 64)
 
+    def test_package_metadata_uses_file_identity_not_path_ctime(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package.bin"
+            package.write_bytes(b"stable package contents")
+            actual = package.stat()
+            path_snapshot = SimpleNamespace(
+                st_dev=actual.st_dev, st_ino=actual.st_ino, st_size=actual.st_size,
+                st_mtime_ns=actual.st_mtime_ns, st_ctime_ns=actual.st_ctime_ns + 1,
+            )
+            with mock.patch.object(Path, "stat", return_value=path_snapshot):
+                size, digest = stable_package_metadata(package)
+            self.assertEqual(size, len(b"stable package contents"))
+            self.assertEqual(len(digest), 64)
+
     def test_mutable_secret_buffer_is_zeroed(self) -> None:
         secret = bytearray(b"sensitive seed material")
         wipe_bytearray(secret)
