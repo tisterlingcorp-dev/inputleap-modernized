@@ -20,6 +20,13 @@
 
 #include <memory>
 
+#if !defined(Q_OS_WIN)
+#define REQUIRE_ATOMIC_FILE_PUBLISH() \
+    do { GTEST_SKIP() << "Secure atomic file publication is implemented only on Windows"; } while (false)
+#else
+#define REQUIRE_ATOMIC_FILE_PUBLISH() do {} while (false)
+#endif
+
 TEST(FileTransferControllerTests, CancellationHandleOutlivesWorkerObject)
 {
     FileTransferCancellation cancellation;
@@ -35,6 +42,7 @@ TEST(FileTransferControllerTests, CancellationHandleOutlivesWorkerObject)
 
 TEST(FileTransferControllerTests, CompletesSuccessfulTransferWithoutUiOwnership)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir temporaryDirectory;
     ASSERT_TRUE(temporaryDirectory.isValid());
 

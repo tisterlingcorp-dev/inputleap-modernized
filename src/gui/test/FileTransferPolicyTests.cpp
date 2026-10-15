@@ -15,6 +15,13 @@
 #include <atomic>
 #include <thread>
 
+#if !defined(Q_OS_WIN)
+#define REQUIRE_ATOMIC_FILE_PUBLISH() \
+    do { GTEST_SKIP() << "Secure atomic file publication is implemented only on Windows"; } while (false)
+#else
+#define REQUIRE_ATOMIC_FILE_PUBLISH() do {} while (false)
+#endif
+
 namespace
 {
 bool waitFor(const std::atomic_bool& complete, int timeoutMs)
@@ -72,6 +79,7 @@ TEST(FileTransferPairingTests, UsesOnlyPskCiphersThatDoNotRequireDiffieHellmanPa
 
 TEST(FileTransferPairingTests, TransfersOverTlsPskWhenBothPeersUseTheSameCode)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir temporaryDirectory;
     ASSERT_TRUE(temporaryDirectory.isValid());
 
@@ -158,6 +166,7 @@ bool sendWithDeviceKey(FileTransferService& receiver, const QString& sourcePath,
 
 TEST(FileTransferPairingTests, SelectsDeviceKeyStrictlyByCanonicalSenderIdentity)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     const QString sourcePath = directory.filePath("device-key.txt");

@@ -27,6 +27,13 @@
 #include <thread>
 #include <vector>
 
+#if !defined(Q_OS_WIN)
+#define REQUIRE_ATOMIC_FILE_PUBLISH() \
+    do { GTEST_SKIP() << "Secure atomic file publication is implemented only on Windows"; } while (false)
+#else
+#define REQUIRE_ATOMIC_FILE_PUBLISH() do {} while (false)
+#endif
+
 #ifdef Q_OS_WIN
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -254,6 +261,7 @@ QByteArray sendAuthenticatedV4(FileTransferService& receiver,
 
 TEST(FileTransferServiceTests, PreservesRelativeFolderPathsForMultipleItems)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir temporaryDirectory;
     ASSERT_TRUE(temporaryDirectory.isValid());
     const QString first = createFile(temporaryDirectory, "first.txt", "first");
@@ -281,6 +289,7 @@ TEST(FileTransferServiceTests, PreservesRelativeFolderPathsForMultipleItems)
 
 TEST(FileTransferServiceTests, FileReceivedCarriesAuthenticatedPeerUuid)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     const QString source = createFile(directory, QStringLiteral("received.txt"), QByteArrayLiteral("peer identity"));
@@ -318,6 +327,7 @@ TEST(FileTransferServiceTests, FileReceivedCarriesAuthenticatedPeerUuid)
 
 TEST(FileTransferServiceTests, KeepsExistingDestinationAndAddsCollisionSuffix)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir temporaryDirectory;
     ASSERT_TRUE(temporaryDirectory.isValid());
     const QString source = createFile(temporaryDirectory, "source.txt", "new contents");
@@ -347,6 +357,7 @@ TEST(FileTransferServiceTests, KeepsExistingDestinationAndAddsCollisionSuffix)
 
 TEST(FileTransferServiceTests, ReportsProgressForLargePayload)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir temporaryDirectory;
     ASSERT_TRUE(temporaryDirectory.isValid());
     const QByteArray payload(2 * 1024 * 1024, 'x');
@@ -407,6 +418,7 @@ TEST(FileTransferServiceTests, ReportsUnavailablePeer)
 
 TEST(FileTransferServiceTests, ResumesInterruptedAuthenticatedTransferWithStableIdentity)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory; ASSERT_TRUE(directory.isValid());
     const QByteArray payload(3*1024*1024,'r');
     const QString source=createFile(directory,"resume.bin",payload); ASSERT_FALSE(source.isEmpty());
@@ -488,6 +500,7 @@ TEST(FileTransferServiceTests, InvalidAuthenticatedManifestFailsClosedWithoutDel
 
 TEST(FileTransferServiceTests, OrphanPartialWithoutManifestIsRemovedBeforeFreshTransfer)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;ASSERT_TRUE(directory.isValid());
     const QByteArray payload("fresh-payload");
     const QString source=createFile(directory,"source.bin",payload);
@@ -520,6 +533,7 @@ TEST(FileTransferServiceTests, OrphanPartialWithoutManifestIsRemovedBeforeFreshT
 
 TEST(FileTransferServiceTests, FailedManifestPromotionPreservesPreviousAuthenticatedManifest)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;ASSERT_TRUE(directory.isValid());
     const QByteArray payload("checkpoint-payload");
     const QString source=createFile(directory,"source.bin",payload);
@@ -550,6 +564,7 @@ TEST(FileTransferServiceTests, FailedManifestPromotionPreservesPreviousAuthentic
 
 TEST(FileTransferServiceTests, AlteredPublishedFileAfterFinalManifestFailureRequiresManualReview)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;ASSERT_TRUE(directory.isValid());
     const QByteArray payload("first-published-payload");
     const QString source=createFile(directory,"source.bin",payload);
@@ -588,6 +603,7 @@ TEST(FileTransferServiceTests, AlteredPublishedFileAfterFinalManifestFailureRequ
 
 TEST(FileTransferServiceTests, IndeterminateReplayDoesNotRecreateMissingDestinationDirectories)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;ASSERT_TRUE(directory.isValid());
     const QString source=createFile(directory,"source.bin","payload");
     const QString received=directory.filePath("received");
@@ -619,6 +635,7 @@ TEST(FileTransferServiceTests, IndeterminateReplayDoesNotRecreateMissingDestinat
 
 TEST(FileTransferServiceTests, AlteredReplacementAfterFinalManifestFailureRequiresManualReview)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;ASSERT_TRUE(directory.isValid());
     const QString source=createFile(directory,"source.bin","new");
     const QString received=directory.filePath("received");ASSERT_TRUE(QDir().mkpath(received));
@@ -655,6 +672,7 @@ TEST(FileTransferServiceTests, AlteredReplacementAfterFinalManifestFailureRequir
 
 TEST(FileTransferServiceTests, TransfersManySmallFilesInOneServiceRun)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory; ASSERT_TRUE(directory.isValid());
     QList<FileTransferService::TransferItem> items;
     for (int i = 0; i < 48; ++i) {
@@ -675,6 +693,7 @@ TEST(FileTransferServiceTests, TransfersManySmallFilesInOneServiceRun)
 
 TEST(FileTransferServiceTests, TransfersLogicallyLargeSparseFileWithoutLargeTestAllocation)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory; ASSERT_TRUE(directory.isValid());
     const QString sourcePath = directory.filePath("sparse-large.bin");
     QFile source(sourcePath); ASSERT_TRUE(source.open(QIODevice::WriteOnly));
@@ -698,6 +717,7 @@ TEST(FileTransferServiceTests, TransfersLogicallyLargeSparseFileWithoutLargeTest
 
 TEST(FileTransferServiceTests, AppliesConfiguredBandwidthLimitToRealChunkLoop)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory; ASSERT_TRUE(directory.isValid());
     const QString source = createFile(directory, "limited.bin", QByteArray(256 * 1024, 'l'));
     ASSERT_FALSE(source.isEmpty());
@@ -772,6 +792,7 @@ TEST(FileTransferServiceTests, ConflictCallbackMayStopListenerWithoutUsingFreedR
 
 TEST(FileTransferServiceTests, AuthenticatedV5HonorsReplaceRenameAndSkipExplicitly)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     for (const auto action : {ConflictAction::Replace, ConflictAction::Rename, ConflictAction::Skip}) {
         SCOPED_TRACE(static_cast<int>(action));
         QTemporaryDir directory; ASSERT_TRUE(directory.isValid());
@@ -872,6 +893,7 @@ TEST(FileTransferServiceTests, RevocationDuringExistingDestinationHashCannotDedu
 
 TEST(FileTransferServiceTests, EqualSizeDifferentHashIsNeverDeduplicated)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory; ASSERT_TRUE(directory.isValid());
     const QString source=createFile(directory,"source.bin","new!"); ASSERT_FALSE(source.isEmpty());
     ASSERT_TRUE(QDir().mkpath(directory.filePath("received")));
@@ -1606,6 +1628,7 @@ TEST(FileTransferServiceTests, UnsupportedAtomicPublishPlatformFailsClosedWithou
 
 TEST(FileTransferServiceTests, ApplyAllSurvivesSeparatePersistentQueueDispatchesInOneBatch)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;ASSERT_TRUE(directory.isValid());
     const QString first=createFile(directory,"first.txt","new-a"),second=createFile(directory,"second.txt","new-b");
     ASSERT_TRUE(QDir().mkpath(directory.filePath("received")));
@@ -1622,6 +1645,7 @@ TEST(FileTransferServiceTests, ApplyAllSurvivesSeparatePersistentQueueDispatches
 
 TEST(FileTransferServiceTests, NonConflictItemIsRecordedAndReplayRequiresFreshDecision)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;ASSERT_TRUE(directory.isValid());ASSERT_TRUE(QDir().mkpath(directory.filePath("received")));
     const QString first=createFile(directory,"first.txt","new-a"),second=createFile(directory,"second.txt","new-b"),replay=createFile(directory,"replay.txt","changed");
     ASSERT_FALSE(createFile(directory,"received/a.txt","old-a").isEmpty());
@@ -1715,6 +1739,7 @@ TEST(FileTransferServiceTests, AuthenticatedWireV5RejectsManifestMetadataLimitsB
 
 TEST(FileTransferServiceTests, AuthenticatedWireV5AcceptsAndRejectsBeforeReceiverEffects)
 {
+    REQUIRE_ATOMIC_FILE_PUBLISH();
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     const QString received = directory.filePath(QStringLiteral("received"));

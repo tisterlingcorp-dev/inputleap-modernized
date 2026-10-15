@@ -23,6 +23,7 @@
 #include <QDialogButtonBox>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QHash>
 #include <QLabel>
 #include <QLayout>
 #include <QLineEdit>
@@ -47,10 +48,31 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <utility>
 
 namespace {
 constexpr quint16 kInstalledFileTransferPort = 24810;
+
+SecureCredentialStore makeTestCredentialStore()
+{
+    const auto values = std::make_shared<QHash<QString, QByteArray>>();
+    return SecureCredentialStore(
+        [values](const QString& account) {
+            const auto it = values->constFind(account);
+            return it == values->cend()
+                ? SecureCredentialStore::ReadResult::notFound()
+                : SecureCredentialStore::ReadResult::found(*it);
+        },
+        [values](const QString& account, const QByteArray& value) {
+            values->insert(account, value);
+            return true;
+        },
+        [values](const QString& account) {
+            values->remove(account);
+            return true;
+        });
+}
 
 class SessionUpdateReply final : public QNetworkReply
 {
@@ -918,7 +940,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("a11y.ini")), QSettings::IniFormat);
-    AppConfig config(&settings, SecureCredentialStore());
+    AppConfig config(&settings, makeTestCredentialStore());
     MainWindow window(settings, config, false, {},
                       std::optional<quint16>{0}, std::optional<quint16>{0});
     ASSERT_TRUE(MainWindowEnvironmentProfileSessionTestAccess::initialized(window));
@@ -937,7 +959,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("keyboard.ini")), QSettings::IniFormat);
-    AppConfig config(&settings, SecureCredentialStore());
+    AppConfig config(&settings, makeTestCredentialStore());
     MainWindow window(settings, config, false, {},
                       std::optional<quint16>{0}, std::optional<quint16>{0});
     ASSERT_TRUE(MainWindowEnvironmentProfileSessionTestAccess::initialized(window));
@@ -971,7 +993,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("wizard.ini")), QSettings::IniFormat);
-    AppConfig config(&settings, SecureCredentialStore());
+    AppConfig config(&settings, makeTestCredentialStore());
     MainWindow window(settings, config, false, {},
                       std::optional<quint16>{0}, std::optional<quint16>{0});
     ASSERT_TRUE(MainWindowEnvironmentProfileSessionTestAccess::initialized(window));
@@ -1002,7 +1024,7 @@ TEST(EnvironmentProfileSessionIntegrationTests,
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QSettings settings(directory.filePath(QStringLiteral("wizard-complete.ini")), QSettings::IniFormat);
-    AppConfig config(&settings, SecureCredentialStore());
+    AppConfig config(&settings, makeTestCredentialStore());
     MainWindow window(settings, config, false, {},
                       std::optional<quint16>{0}, std::optional<quint16>{0});
     ASSERT_TRUE(MainWindowEnvironmentProfileSessionTestAccess::initialized(window));
