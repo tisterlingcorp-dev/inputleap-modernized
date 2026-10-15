@@ -9,10 +9,11 @@ Este checklist separa o que pode ser verificado localmente do que exige custódi
 - [ ] Reconfigurar o preset Release em diretório limpo:
 
 ```bat
-call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
-cmake --fresh --preset windows-msvc-main
-cmake --build out\build\windows-msvc-main --target input-leap input-leapc input-leaps input-leapd --parallel 2
+$env:B_BUILD_TYPE = 'Release'
+.\clean_build.ps1
 ```
+
+O artefato Inno Setup deve estar em `build\installer-inno\bin\InputLeapSetup-*.exe`. O CI de push usa Debug; para compilar o instalador no Actions, executar manualmente `Build tests` com `build_release=true` e `include_legacy_platforms=false`.
 
 - [ ] Verificar `git diff --check`.
 - [ ] Verificar versão embutida e notas de release.
@@ -20,14 +21,16 @@ cmake --build out\build\windows-msvc-main --target input-leap input-leapc input-
 
 ## 2. Testes
 
+- [ ] Confirmar que o gate Build tests no SHA candidato concluiu com sucesso no job Windows Qt6.
 - [ ] Executar CTest Release com o PATH do Qt configurado.
 - [ ] Executar os testes funcionais de transferência, IPC, descoberta e atualização.
+- [ ] Em VM Windows 10 e Windows 11 limpas, validar instalação, reinstalação/upgrade, reparo, desinstalação e rollback da versão anterior; confirmar serviço, firewall e preservação de `%ProgramData%\InputLeap` e `%LOCALAPPDATA%\InputLeap`.
 - [ ] Registrar logs fora de `out/` quando o script de limpeza puder remover os artefatos.
 - [ ] Reexecutar os gates depois de qualquer alteração no código-fonte congelado.
 
 ## 3. Pacote e hash
 
-- [ ] Gerar o instalador com WiX/Inno em ambiente de release.
+- [ ] Gerar o instalador Inno em ambiente de release.
 - [ ] Calcular SHA-256 a partir do pacote final, depois de todas as cópias.
 - [ ] Confirmar tamanho, caminho e identidade do arquivo por descriptor/handle.
 - [ ] Comparar versão, URL, tamanho e hash por canal independente.
@@ -56,4 +59,4 @@ Os comandos detalhados de custódia e montagem estão em `doc/secure-update-sign
 
 ## 6. Estado atual conhecido
 
-O ambiente de desenvolvimento pode verificar build, versão, deployment Qt, testes e hashes. Certificado Authenticode de produção, ferramentas de empacotamento instaladas, custódia 2-de-3 e feed HTTPS de produção são dependências externas; na ausência deles, o resultado correto é **bloqueado**, não um PASS parcial apresentado como release.
+O workflow Windows inclui um smoke test de instalação, reinstalação, inicialização do serviço, desinstalação e preservação de um marcador em `%ProgramData%`. Isso não substitui a validação em VM limpa Windows 10/11, os cenários explícitos de reparo/rollback, o piloto em duas máquinas, nem revisão de licenças/SBOM/hash/assinatura. Sem evidência desses gates, o resultado correto é **pendente**, não um PASS parcial apresentado como release.

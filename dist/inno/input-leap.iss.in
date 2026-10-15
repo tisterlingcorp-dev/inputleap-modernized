@@ -55,15 +55,13 @@ Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: 
 ; to avoid duplicate entries remove the existing rule (fails if it doesn't exist) before adding
 Filename: {sys}\netsh.exe; Parameters: "advfirewall firewall delete rule name=""{#MyAppListenerDesc}"""; Flags: runhidden
 Filename: {sys}\netsh.exe; Parameters: "advfirewall firewall delete rule name=""{#MyAppFileTransferDesc}"""; Flags: runhidden
-Filename: {sys}\netsh.exe; Parameters: "advfirewall firewall add rule name=""{#MyAppListenerDesc}"" protocol=TCP dir=in localport=24800 action=allow"; Flags: runhidden
-Filename: {sys}\netsh.exe; Parameters: "advfirewall firewall add rule name=""{#MyAppFileTransferDesc}"" protocol=TCP dir=in localport=24810 action=allow"; Flags: runhidden
-Filename: {sys}\sc.exe; Parameters: "create {#MyAppServiceName} start= auto binPath= ""\""{app}\{#MyAppServiceExe}\"""""; Flags: runhidden
+Filename: {sys}\netsh.exe; Parameters: "advfirewall firewall add rule name=""{#MyAppListenerDesc}"" protocol=TCP dir=in localport=24800 remoteip=localsubnet,100.64.0.0/10 action=allow"; Flags: runhidden
+Filename: {sys}\netsh.exe; Parameters: "advfirewall firewall add rule name=""{#MyAppFileTransferDesc}"" protocol=TCP dir=in localport=24810 remoteip=localsubnet,100.64.0.0/10 action=allow"; Flags: runhidden
+Filename: {sys}\sc.exe; Parameters: "create {#MyAppServiceName} start= auto binPath= ""\""{app}\{#MyAppServiceExe}\"""""; Flags: runhidden; Check: not IsInputLeapServiceInstalled
+Filename: {sys}\sc.exe; Parameters: "config {#MyAppServiceName} start= auto binPath= ""\""{app}\{#MyAppServiceExe}\"""""; Flags: runhidden; Check: IsInputLeapServiceInstalled
 Filename: {sys}\sc.exe; Parameters: "description {#MyAppServiceName} ""{#MyAppServiceDesc}"""; Flags: runhidden
 Filename: {sys}\sc.exe; Parameters: "start {#MyAppServiceName}"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-
-[UninstallDelete]
-Type: filesandordirs; Name: "{commonappdata}\InputLeap"
 
 [UninstallRun]
 Filename: {sys}\taskkill; Parameters: "/im {#MyAppExeName} /f /t"; Flags: runhidden; RunOnceId: "StopInputLeapGui"
@@ -83,12 +81,26 @@ DependenciesDir="redist"
 #include "scripts\products\vcredist2017.iss"
 
 [Code]
+function IsInputLeapServiceInstalled(): boolean;
+var
+	ResultCode: Integer;
+begin
+	ResultCode := -1;
+	Result := Exec(ExpandConstant('{sys}\sc.exe'), 'query {#MyAppServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+end;
+
 function InitializeSetup(): boolean;
+var
+	ResultCode: Integer;
 begin
 	// initialize windows version
 	initwinversion();
 
 	vcredist2017('14'); // min allowed version is 14.0
+
+	// Stop an existing runtime before replacing its binaries during an upgrade.
+	if IsInputLeapServiceInstalled() then
+		Exec(ExpandConstant('{sys}\net.exe'), 'stop {#MyAppServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
 	Result := true;
 end;

@@ -499,6 +499,42 @@ jobs:
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp .\build\installer-inno\input-leap.iss
 
+      - name: Smoke-test Windows installer lifecycle
+        if: env.B_BUILD_TYPE == 'Release'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-ChildItem .\build\installer-inno\bin\InputLeapSetup-*.exe | Select-Object -First 1
+          if ($null -eq $installer) { throw 'Windows installer artifact was not created' }
+
+          $installDir = Join-Path $env:ProgramFiles 'InputLeap'
+          $stateDir = Join-Path $env:ProgramData 'InputLeap'
+          $sentinel = Join-Path $stateDir 'installer-smoke-test-preserve.txt'
+          New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
+          Set-Content -LiteralPath $sentinel -Value 'preserve shared state on uninstall'
+          $silentArgs = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-')
+
+          foreach ($attempt in 1..2) {
+            $install = Start-Process -FilePath $installer.FullName -ArgumentList $silentArgs -Wait -PassThru
+            if ($install.ExitCode -ne 0) { throw "Installer attempt $attempt failed with exit code $($install.ExitCode)" }
+            if (-not (Test-Path (Join-Path $installDir 'input-leap-tauri.exe'))) { throw 'Tauri UI missing after install' }
+            if (-not (Test-Path (Join-Path $installDir 'input-leapd.exe'))) { throw 'Runtime daemon missing after install' }
+            $service = Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue
+            if ($null -eq $service) { throw 'InputLeap service missing after install' }
+            if ($service.Status -ne 'Running') { throw "InputLeap service did not start after install: $($service.Status)" }
+          }
+
+          $uninstaller = Join-Path $installDir 'unins000.exe'
+          if (-not (Test-Path $uninstaller)) { throw 'Uninstaller missing after install' }
+          $remove = Start-Process -FilePath $uninstaller -ArgumentList $silentArgs -Wait -PassThru
+          if ($remove.ExitCode -ne 0) { throw "Uninstaller failed with exit code $($remove.ExitCode)" }
+          if (Test-Path (Join-Path $installDir 'input-leap-tauri.exe')) { throw 'Application files remain after uninstall' }
+          if (Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue) { throw 'InputLeap service remains after uninstall' }
+          if (Get-NetFirewallRule -DisplayName 'InputLeap Listener' -ErrorAction SilentlyContinue) { throw 'InputLeap listener firewall rule remains after uninstall' }
+          if (Get-NetFirewallRule -DisplayName 'InputLeap File Transfer' -ErrorAction SilentlyContinue) { throw 'InputLeap file-transfer firewall rule remains after uninstall' }
+          if (-not (Test-Path $sentinel)) { throw 'Uninstall removed shared ProgramData; user state must be preserved' }
+          Remove-Item -LiteralPath $sentinel -Force
+
       - uses: actions/upload-artifact@v7
         if: env.B_BUILD_TYPE == 'Release'
         with:
