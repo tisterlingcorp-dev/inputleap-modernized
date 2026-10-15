@@ -181,6 +181,7 @@ set(GUI_SOURCE_FILES
     src/TrashScreenWidget.cpp
     src/UiTheme.cpp
     src/ZeroconfBrowser.cpp
+    src/WindowsDnsSdInstance.cpp
     src/ZeroconfRegister.cpp
     src/ZeroconfServer.cpp
     src/ZeroconfService.cpp
@@ -234,6 +235,7 @@ set(GUI_HEADER_FILES
     src/TrashScreenWidget.h
     src/UiTheme.h
     src/ZeroconfBrowser.h
+    src/WindowsDnsSdInstance.h
     src/ZeroconfRecord.h
     src/ZeroconfRegister.h
     src/ZeroconfServer.h
@@ -721,6 +723,7 @@ if(INPUTLEAP_BUILD_TESTS)
         src/FileTransferResume.cpp src/FileTransferResume.h
         src/TransferPerformance.cpp src/TransferPerformance.h
         src/PairingWizard.cpp src/PairingWizard.h src/ScreenSetupModel.cpp src/ScreenSetupModel.h
+        src/WindowsDnsSdInstance.cpp src/WindowsDnsSdInstance.h
         src/ScreenLayoutEditorWidget.cpp src/ScreenLayoutEditorWidget.h
         src/Screen.cpp src/Screen.h src/ServerConfig.cpp src/ServerConfig.h
         src/AddClientDialog.cpp src/AddClientDialog.h src/AddClientDialog.ui
@@ -755,6 +758,7 @@ if(INPUTLEAP_BUILD_TESTS)
     add_executable(zeroconfmetadatatests test/ZeroconfMetadataTests.cpp test/CoreTestMain.cpp
         src/CapabilityNegotiationPolicy.cpp src/CapabilityNegotiationPolicy.h
         src/LocalDeviceIdentity.cpp src/LocalDeviceIdentity.h src/ZeroconfMetadata.cpp src/ZeroconfMetadata.h
+        src/WindowsDnsSdInstance.cpp src/WindowsDnsSdInstance.h
         src/ZeroconfDiscoveryCoordinator.cpp src/ZeroconfDiscoveryCoordinator.h src/ZeroconfRegistrationState.h)
     add_test(NAME zeroconfmetadatatests COMMAND zeroconfmetadatatests WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
     set_tests_properties(zeroconfmetadatatests PROPERTIES LABELS "gui-models;zeroconf-metadata")

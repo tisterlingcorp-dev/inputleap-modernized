@@ -7,7 +7,7 @@
   "snapshotKind": "dirty-working-tree-content-manifest",
   "branchAtFreeze": "fix/tls-rejected-socket-cleanup",
   "pathCount": 79,
-  "contentDigest": "270860d97e85fc1ca5fba1ab7a221c6f1dfe17d8209437d488896c869b035615",
+  "contentDigest": "621cf1ff0f3db4e3211b83ee99d03f1c7f59c58eea14467e7843cb29a634cf6b",
   "files": [
     {
       "path": ".gitignore",
@@ -29,9 +29,9 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 16419,
+      "size": 16566,
       "hashMode": "canonical-lf",
-      "sha256": "04c415dc733d30a897271d41801fefedd97c3131c53c3b473edab0eab55fb4c8"
+      "sha256": "a39a5f8c26aa26270a4ec2d301a1e57faf85a31f9920d93572592ca4c861a0c0"
     },
     {
       "path": "cmake/ProjectOptions.cmake",
@@ -53,9 +53,9 @@
     },
     {
       "path": "src/gui/CMakeLists.txt",
-      "size": 37378,
+      "size": 37570,
       "hashMode": "canonical-lf",
-      "sha256": "efc458bad8dc42647b0cb20461e10961d26d41e0746bfae481f8db80f445a4ca"
+      "sha256": "5183d8ac8d64bb175b75f1fea807b7bc42f5e6365ae1b22d8e53d765cdd9923b"
     },
     {
       "path": "src/gui/src/FileTransferService.cpp",

@@ -16,6 +16,7 @@
  */
 
 #include "SecureSocket.h"
+#include "TlsPolicy.h"
 #include "SecureUtils.h"
 
 #include "net/TSocketMultiplexerMethodJob.h"
@@ -399,8 +400,13 @@ SecureSocket::initContext(bool server)
         return;
     }
 
-    // Disable SSLv3 while retaining the protocol negotiation supported by existing peers.
-    SSL_CTX_set_options(m_ssl->m_context, SSL_OP_NO_SSLv3);
+    // Require modern TLS while retaining negotiation up to TLS 1.3 where supported.
+    if (!configureMinimumTlsVersion(m_ssl->m_context)) {
+        showError("could not set minimum TLS protocol version");
+        SSL_CTX_free(m_ssl->m_context);
+        m_ssl->m_context = nullptr;
+        return;
+    }
 
     if (security_level_ == ConnectionSecurityLevel::ENCRYPTED_AUTHENTICATED) {
         // We want to ask for peer certificate, but not verify it. If we don't ask for peer

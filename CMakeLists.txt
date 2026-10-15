@@ -245,7 +245,9 @@ if (UNIX)
     endif()
 
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+    # The codebase relies on C++ stack unwinding for RAII cleanup when an
+    # exception exits a scope (including the watchdog event loop).
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /EHsc")
     set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD /O2 /Ob2")
 
     list (APPEND libs Wtsapi32 Userenv Wininet comsuppw Shlwapi)

@@ -2,10 +2,14 @@
 #include "ZeroconfMetadata.h"
 #include "ZeroconfDiscoveryCoordinator.h"
 #include "ZeroconfRegistrationState.h"
+#include "WindowsDnsSdInstance.h"
 
 #include <gtest/gtest.h>
 #include <QSettings>
 #include <QTemporaryDir>
+#include <QtEndian>
+#include <algorithm>
+#include <string>
 
 namespace {
 ZeroconfMetadata metadata(const QString& uuid = "123e4567-e89b-42d3-a456-426614174000")
@@ -81,6 +85,149 @@ TEST(ZeroconfMetadataTests, LegacyAdvertisementIsExplicit)
     EXPECT_EQ(parsed.status, ZeroconfParseStatus::Legacy);
     EXPECT_FALSE(parsed.metadata.has_value());
 }
+
+TEST(WindowsDnsSdInstanceTests, ConvertsValidatedTxtAndDeduplicatedIpv4Ipv6)
+{
+    const auto canonical = ZeroconfMetadataCodec::serialize(metadata());
+    ASSERT_TRUE(canonical.ok);
+    WindowsDnsSdInstance instance;
+    instance.instanceName = QStringLiteral("InputLeap server");
+    instance.hostName = QStringLiteral("inputleap.local.");
+    instance.port = 24800;
+    instance.ipv4Addresses = {qToBigEndian<quint32>(0xc0000201), qToBigEndian<quint32>(0xc0000201)};
+    instance.ipv6Addresses = {QByteArray::fromHex("20010db8000000000000000000000001")};
+    for (const QByteArray& line : canonical.txt.split('\n')) {
+        const qsizetype equals = line.indexOf('=');
+        ASSERT_GT(equals, 0);
+        instance.properties.append({QString::fromLatin1(line.left(equals)), QString::fromUtf8(line.mid(equals + 1))});
+    }
+
+    const auto converted = WindowsDnsSdInstanceCodec::convert(instance);
+    ASSERT_TRUE(converted.ok()) << converted.detail.toStdString();
+    ASSERT_EQ(converted.metadata.status, ZeroconfParseStatus::Compatible);
+    EXPECT_EQ(*converted.metadata.metadata, metadata());
+    ASSERT_EQ(converted.addresses.size(), 2);
+    EXPECT_EQ(converted.addresses.at(0).toString(), QStringLiteral("192.0.2.1"));
+    EXPECT_EQ(converted.addresses.at(1).toString(), QStringLiteral("2001:db8::1"));
+}
+
+TEST(WindowsDnsSdInstanceTests, RejectsZeroPortDuplicateTxtAndMalformedIpv6)
+{
+    WindowsDnsSdInstance instance;
+    EXPECT_FALSE(WindowsDnsSdInstanceCodec::convert(instance).ok());
+
+    const auto canonical = ZeroconfMetadataCodec::serialize(metadata());
+    ASSERT_TRUE(canonical.ok);
+    instance.port = 24800;
+    for (const QByteArray& line : canonical.txt.split('\n')) {
+        const qsizetype equals = line.indexOf('=');
+        instance.properties.append({QString::fromLatin1(line.left(equals)), QString::fromUtf8(line.mid(equals + 1))});
+    }
+    instance.properties.append(instance.properties.first());
+    EXPECT_FALSE(WindowsDnsSdInstanceCodec::convert(instance).ok());
+
+    instance.properties.removeLast();
+    instance.ipv6Addresses = {QByteArray(15, '\0')};
+    EXPECT_FALSE(WindowsDnsSdInstanceCodec::convert(instance).ok());
+}
+
+TEST(WindowsDnsSdInstanceTests, RejectsOversizedTxtProperties)
+{
+    const auto canonical = ZeroconfMetadataCodec::serialize(metadata());
+    ASSERT_TRUE(canonical.ok);
+    WindowsDnsSdInstance instance;
+    instance.port = 24800;
+    for (const QByteArray& line : canonical.txt.split('\n')) {
+        const qsizetype equals = line.indexOf('=');
+        instance.properties.append({QString::fromLatin1(line.left(equals)), QString::fromUtf8(line.mid(equals + 1))});
+    }
+    instance.properties.append({QStringLiteral("extra"), QString(255, QLatin1Char('x'))});
+    EXPECT_FALSE(WindowsDnsSdInstanceCodec::convert(instance).ok());
+}
+
+TEST(WindowsDnsSdBrowseRecordCodecTests, ParsesInstanceAndServiceDomainFromPtrRecords)
+{
+    const auto event = WindowsDnsSdBrowseRecordCodec::decodePtr(
+        QStringLiteral("_inputleapserver._tcp.local."),
+        QStringLiteral("Office\\032PC._inputleapserver._tcp.local."), 7, true);
+    ASSERT_TRUE(event.valid);
+    EXPECT_TRUE(event.added);
+    EXPECT_EQ(event.interfaceIndex, 7u);
+    EXPECT_EQ(event.instanceName, QStringLiteral("Office\\032PC"));
+    EXPECT_EQ(event.serviceType, QStringLiteral("_inputleapserver._tcp"));
+    EXPECT_EQ(event.domain, QStringLiteral("local."));
+}
+
+TEST(WindowsDnsSdBrowseRecordCodecTests, RejectsMalformedOrMismatchedPtrRecords)
+{
+    EXPECT_FALSE(WindowsDnsSdBrowseRecordCodec::decodePtr(
+        QStringLiteral("_inputleapserver._tcp.local."),
+        QStringLiteral("other._inputleapclient._tcp.local."), 1, true).valid);
+    EXPECT_FALSE(WindowsDnsSdBrowseRecordCodec::decodePtr(
+        QStringLiteral("bad._tcp.local."), QStringLiteral("instance.bad._tcp.local."), 1, true).valid);
+    EXPECT_FALSE(WindowsDnsSdBrowseRecordCodec::decodePtr(
+        QStringLiteral("_inputleapserver._tcp.local."),
+        QStringLiteral("instance._inputleapserver._tcp.local."), 0, true).valid);
+}
+
+TEST(WindowsDnsSdInstanceTests, ParsesDnsApiFullyQualifiedServiceInstanceName)
+{
+    const auto event = WindowsDnsSdInstanceCodec::decodeResolvedServiceName(
+        QStringLiteral("Office\\032PC._inputleapserver._tcp.local."), 12);
+    ASSERT_TRUE(event.valid);
+    EXPECT_EQ(event.instanceName, QStringLiteral("Office\\032PC"));
+    EXPECT_EQ(event.serviceType, QStringLiteral("_inputleapserver._tcp"));
+    EXPECT_EQ(event.domain, QStringLiteral("local."));
+    EXPECT_EQ(event.interfaceIndex, 12u);
+}
+
+#ifdef Q_OS_WIN
+TEST(WindowsDnsSdInstanceTests, CopiesWindowsDnsApiInstanceIntoOwnedQtValues)
+{
+    const auto canonical = ZeroconfMetadataCodec::serialize(metadata());
+    ASSERT_TRUE(canonical.ok);
+
+    IP4_ADDRESS ipv4 = qToBigEndian<quint32>(0xc0000201);
+    IP6_ADDRESS ipv6{};
+    const QByteArray ipv6Bytes = QByteArray::fromHex("20010db8000000000000000000000001");
+    std::copy(ipv6Bytes.cbegin(), ipv6Bytes.cend(), ipv6.IP6Byte);
+
+    QVector<std::wstring> keys;
+    QVector<std::wstring> values;
+    for (const QByteArray& line : canonical.txt.split('\n')) {
+        const qsizetype equals = line.indexOf('=');
+        ASSERT_GT(equals, 0);
+        keys.append(QString::fromLatin1(line.left(equals)).toStdWString());
+        values.append(QString::fromUtf8(line.mid(equals + 1)).toStdWString());
+    }
+    QVector<PWSTR> keyPointers, valuePointers;
+    for (auto& key : keys) keyPointers.append(key.data());
+    for (auto& value : values) valuePointers.append(value.data());
+
+    DNS_SERVICE_INSTANCE source{};
+    source.pszInstanceName = const_cast<PWSTR>(L"InputLeap._inputleapserver._tcp.local.");
+    source.pszHostName = const_cast<PWSTR>(L"inputleap.local.");
+    source.ip4Address = &ipv4;
+    source.ip6Address = &ipv6;
+    source.wPort = 24800;
+    source.dwPropertyCount = DWORD(keyPointers.size());
+    source.keys = keyPointers.data();
+    source.values = valuePointers.data();
+    source.dwInterfaceIndex = 19;
+
+    const auto owned = WindowsDnsSdInstanceCodec::copyFromDnsApi(source);
+    EXPECT_EQ(owned.instanceName, QStringLiteral("InputLeap._inputleapserver._tcp.local."));
+    EXPECT_EQ(owned.hostName, QStringLiteral("inputleap.local."));
+    EXPECT_EQ(owned.interfaceIndex, 19u);
+    EXPECT_EQ(owned.properties.size(), keys.size());
+    const auto converted = WindowsDnsSdInstanceCodec::convert(owned);
+    ASSERT_TRUE(converted.ok()) << converted.detail.toStdString();
+    EXPECT_EQ(*converted.metadata.metadata, metadata());
+    EXPECT_EQ(converted.addresses.size(), 2);
+    EXPECT_EQ(converted.addresses.at(0).toString(), QStringLiteral("192.0.2.1"));
+    EXPECT_EQ(converted.addresses.at(1).toString(), QStringLiteral("2001:db8::1"));
+}
+#endif
 
 TEST(ZeroconfMetadataTests, PairingPortIsOptionalAndStrict)
 {
