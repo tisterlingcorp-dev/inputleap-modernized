@@ -1544,7 +1544,18 @@ TEST(EnvironmentProfileStoreTests, SecondProcessBlocksDuringOwnershipAndRecovers
     holder.setArguments({QStringLiteral("--hold-configuration-lock"), lockPath});
     holder.start();
     ASSERT_TRUE(holder.waitForStarted(5000));
-    ASSERT_TRUE(holder.waitForReadyRead(5000));
+    if (!holder.waitForReadyRead(5000)) {
+        const QString diagnostic = QStringLiteral(
+            "process fixture did not report lock ownership (state=%1, exitCode=%2, "
+            "exitStatus=%3, error=%4, stderr=%5, stdout=%6)")
+            .arg(static_cast<int>(holder.state()))
+            .arg(holder.exitCode())
+            .arg(static_cast<int>(holder.exitStatus()))
+            .arg(holder.errorString())
+            .arg(QString::fromLocal8Bit(holder.readAllStandardError()))
+            .arg(QString::fromLocal8Bit(holder.readAllStandardOutput()));
+        FAIL() << diagnostic.toStdString();
+    }
     ASSERT_EQ(holder.readLine().trimmed(), QByteArray("READY"));
     ASSERT_TRUE(QFileInfo::exists(lockPath));
 

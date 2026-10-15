@@ -20,7 +20,7 @@ InputLeap Modernized is an unofficial derivative of [input-leap/input-leap](http
 | Rust/Cargo dependencies | Rust applications and libraries | MIT, Apache-2.0, BSD, ISC, Zlib, Unicode, MPL-2.0 and Apache-2.0 WITH LLVM-exception components are accepted by `rust/deny.toml`. Each dependency remains under its own terms. |
 | GoogleTest/GoogleMock | C++ tests via `ext/gtest` | BSD-3-Clause; full notice below. |
 | gulrak/filesystem | C++ filesystem compatibility via `ext/gulrak-filesystem` | MIT; full notice below. |
-| mDNSResponder / Bonjour SDK-like files | Windows discovery build inputs (`dns_sd.h`, `dnssd.lib` and `dnssd.pdb`) downloaded from the pinned `nelsonjchen/mDNSResponder` release | The upstream `LICENSE` states that most source is Apache-2.0, shared-library code is BSD-3-Clause and NSS code uses the NICTA license. The binary archive does not include a license file; determine the applicable per-file terms and include the required license texts before binary redistribution. Provenance details follow below. |
+| mDNSResponder / Bonjour SDK-like files | Windows discovery build inputs (`dns_sd.h`, `dnssd.lib` and `dnssd.pdb`) downloaded from the pinned `nelsonjchen/mDNSResponder` release | The pinned archive's PDB identifies `mDNSWindows/DLLStub/DLLStub.cpp`; the header and stub source carry Apple's BSD-3-Clause notice. The full notice is included below. The archive contains no `dnssd.dll`; whether the Windows discovery runtime is required/bundled remains a separate packaging prerequisite and licensing review. |
 | Inno Setup | Optional legacy Windows package compiler, installed separately | Inno Setup is not vendored in this repository. Builders and binary redistributors must follow the license of the installed Inno Setup version. |
 | isxdl 5.1.0 | Download helper DLL used only by the legacy Inno scripts | BSD-3-Clause; full notice below. The tracked DLL has SHA-256 `b0cc4697b2fd1b4163fddca2050fc62a9e7d221864f1bd11e739144c90b685b3`. |
 
@@ -35,9 +35,25 @@ Allowing a license in `deny.toml` means the dependency is known and accepted by 
 
 ## mDNSResponder / Bonjour SDK-like provenance
 
-Windows builds obtain `x64_RelWithDebInfo.zip` from the pinned `nelsonjchen/mDNSResponder` tag `v2019.05.08.1`. The expected archive SHA-256 is `aad489258d047e396a43efff4270571c82e7da5d33cba1710b784b66fd4011f9`; build automation verifies it before extraction. The archive contains `Include/dns_sd.h`, `Lib/x64/dnssd.lib` and `Lib/x64/dnssd.pdb` and is not stored in this source repository.
+Windows builds obtain `x64_RelWithDebInfo.zip` from the pinned `nelsonjchen/mDNSResponder` tag `v2019.05.08.1` (source commit `06592e27d2b36c76470696f4ea1ce90cc462d40f`). The expected archive SHA-256 is `aad489258d047e396a43efff4270571c82e7da5d33cba1710b784b66fd4011f9`; build automation verifies it before extraction. The exact downloaded archive was independently hashed and contains only `Include/dns_sd.h`, `Lib/x64/dnssd.lib` and `Lib/x64/dnssd.pdb`.
 
-The source repository's [`LICENSE`](https://github.com/nelsonjchen/mDNSResponder/blob/master/LICENSE) describes mixed licensing: Apache License 2.0 for most source, BSD 3-Clause terms for shared-library code, and the NICTA Public Software Licence for the Name Service Switch code. Because the downloaded binary archive carries no embedded license or per-file mapping, public binary release remains blocked until the applicable terms for these three files and any Bonjour runtime redistribution are reviewed and the required license texts are packaged.
+The archive's PDB names `mDNSWindows/DLLStub/DLLStub.cpp`, and the library contains the `DLLStub` wrapper symbols and the `dnssd.dll` module name. At the pinned source commit, both `mDNSWindows/DLLStub/DLLStub.cpp` and `mDNSWindows/DLLStub/DLLStub.h` carry the BSD-3-Clause text reproduced below; `mDNSShared/dns_sd.h` carries the same terms. This identifies the applicable notice for the bundled SDK-like stub/header. It does not license or establish the provenance of a separate Bonjour runtime installer or `dnssd.dll`.
+
+The upstream repository's [`LICENSE`](https://github.com/nelsonjchen/mDNSResponder/blob/06592e27d2b36c76470696f4ea1ce90cc462d40f/LICENSE) describes mixed licensing for other source components: Apache License 2.0 for most code, BSD 3-Clause terms for shared-library code and the NICTA Public Software Licence for NSS code. The inspected SDK-like archive does not contain `dnssd.dll`. The Windows application uses the stub to dynamically load `dnssd.dll`; determine whether this runtime is required for the supported discovery path and provide a lawful, version-pinned installation/prerequisite before claiming discovery works on a clean Windows machine. Apple publishes a separate [Bonjour for Windows software distribution agreement](https://developer.apple.com/licensing-trademarks/files/bonjour4win.pdf) describing object-code distribution only as part of a product and requiring an executed agreement and end-user assent; availability of that form is not evidence that this project has redistribution rights. Do not redistribute Apple's Bonjour installer/runtime unless the exact current terms and written authorization applicable to this product have been verified. Consequently, binary release remains blocked on runtime dependency and full Windows dependency/license review.
+
+## Apple DNS-SD header and Windows DLL stub — BSD 3-Clause License
+
+Copyright (c) 2003-2015 Apple Inc. All rights reserved.
+
+Copyright (c) 2009, Apple Computer, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+3. Neither the name of Apple Inc. ("Apple"), nor the name of Apple Computer, Inc., nor the names of their contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Names and artwork
 
