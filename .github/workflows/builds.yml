@@ -510,6 +510,29 @@ jobs:
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp .\build\installer-inno\input-leap.iss
 
+      - name: Generate Windows package SBOM
+        if: env.B_BUILD_TYPE == 'Release'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .\build\input-leap-install
+          format: cyclonedx-json
+          output-file: .\build\installer-inno\bin\input-leap-windows-x64.cdx.json
+          artifact-name: input-leap-windows-x64-sbom-${{ matrix.name }}
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate installer SHA-256 manifest
+        if: env.B_BUILD_TYPE == 'Release'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $outputDir = Resolve-Path .\build\installer-inno\bin
+          $manifestPath = Join-Path $outputDir 'SHA256SUMS.txt'
+          $entries = Get-ChildItem -LiteralPath $outputDir -File -Filter 'InputLeapSetup-*.exe' |
+            ForEach-Object { "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant(), $_.Name }
+          if (-not $entries) { throw 'No installer found for SHA-256 manifest' }
+          Set-Content -LiteralPath $manifestPath -Value $entries -Encoding ascii
+
       - name: Smoke-test Windows installer lifecycle
         if: env.B_BUILD_TYPE == 'Release'
         shell: pwsh
@@ -529,7 +552,13 @@ jobs:
             $install = Start-Process -FilePath $installer.FullName -ArgumentList $silentArgs -Wait -PassThru
             if ($install.ExitCode -ne 0) { throw "Installer attempt $attempt failed with exit code $($install.ExitCode)" }
             if (-not (Test-Path (Join-Path $installDir 'input-leap-tauri.exe'))) { throw 'Tauri UI missing after install' }
-            if (-not (Test-Path (Join-Path $installDir 'input-leapd.exe'))) { throw 'Runtime daemon missing after install' }
+            if (-not (Test-Path (Join-Path $installDir 'input-leap.exe'))) { throw 'C++ compatibility UI missing after install' }
+            if (-not (Test-Path (Join-Path $installDir 'input-leaps.exe'))) { throw 'InputLeap server runtime missing after install' }
+            if (-not (Test-Path (Join-Path $installDir 'input-leapc.exe'))) { throw 'InputLeap client runtime missing after install' }
+            if (-not (Test-Path (Join-Path $installDir 'input-leapd.exe'))) { throw 'InputLeap daemon missing after install' }
+            if (-not (Test-Path (Join-Path $installDir 'LICENSE.txt'))) { throw 'Project license missing after install' }
+            if (-not (Test-Path (Join-Path $installDir 'License.rtf'))) { throw 'Installer license text missing after install' }
+            if (-not (Test-Path (Join-Path $installDir 'THIRD_PARTY_NOTICES.md'))) { throw 'Third-party notices missing after install' }
             $service = Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue
             if ($null -eq $service) { throw 'InputLeap service missing after install' }
             if ($service.Status -ne 'Running') { throw "InputLeap service did not start after install: $($service.Status)" }
@@ -539,7 +568,7 @@ jobs:
           if (-not (Test-Path $uninstaller)) { throw 'Uninstaller missing after install' }
           $remove = Start-Process -FilePath $uninstaller -ArgumentList $silentArgs -Wait -PassThru
           if ($remove.ExitCode -ne 0) { throw "Uninstaller failed with exit code $($remove.ExitCode)" }
-          if (Test-Path (Join-Path $installDir 'input-leap-tauri.exe')) { throw 'Application files remain after uninstall' }
+          if (Test-Path (Join-Path $installDir 'input-leap-tauri.exe')) { throw 'Tauri application files remain after uninstall' }
           if (Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue) { throw 'InputLeap service remains after uninstall' }
           if (Get-NetFirewallRule -DisplayName 'InputLeap Listener' -ErrorAction SilentlyContinue) { throw 'InputLeap listener firewall rule remains after uninstall' }
           if (Get-NetFirewallRule -DisplayName 'InputLeap File Transfer' -ErrorAction SilentlyContinue) { throw 'InputLeap file-transfer firewall rule remains after uninstall' }
