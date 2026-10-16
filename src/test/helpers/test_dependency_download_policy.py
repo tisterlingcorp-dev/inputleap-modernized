@@ -5,31 +5,59 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[3]
-EXPECTED_URL = (
-    "https://github.com/nelsonjchen/mDNSResponder/releases/download/"
-    "v2019.05.08.1/x64_RelWithDebInfo.zip"
-)
-EXPECTED_SHA256 = "aad489258d047e396a43efff4270571c82e7da5d33cba1710b784b66fd4011f9"
-DOWNLOADERS = (
-    ROOT / ".github" / "workflows" / "builds.yml",
-    ROOT / "clean_build.ps1",
-)
+MDNS_REVISION = "f783506af3836b39b83fc14115bc2728a49db4b2"
 
 
 class DependencyDownloadPolicyTests(unittest.TestCase):
-    def test_bonjour_archive_is_version_pinned_and_verified_before_extract(self):
-        for path in DOWNLOADERS:
-            with self.subTest(path=path.relative_to(ROOT)):
-                text = path.read_text(encoding="utf-8")
-                download = text.find(EXPECTED_URL)
-                checksum = text.find(EXPECTED_SHA256)
-                verification = text.find("Get-FileHash")
-                extraction = text.find("Expand-Archive")
+    def test_dns_sd_source_revision_is_pinned_across_build_paths(self):
+        workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
+        local_build = (ROOT / "clean_build.ps1").read_text(encoding="utf-8")
+        build_script = (ROOT / "scripts" / "windows" / "build_mdns_responder.ps1").read_text(
+            encoding="utf-8"
+        )
+        notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
 
-                self.assertGreaterEqual(download, 0, "Bonjour URL must pin the release tag")
-                self.assertGreaterEqual(checksum, 0, "Bonjour archive SHA-256 must be pinned")
-                self.assertGreaterEqual(verification, 0, "Bonjour archive hash must be verified")
-                self.assertGreater(extraction, verification, "hash verification must precede extraction")
+        for path, text in (
+            ("workflow", workflow),
+            ("local build", local_build),
+            ("build script", build_script),
+            ("third-party notices", notices),
+        ):
+            with self.subTest(path=path):
+                self.assertIn(MDNS_REVISION, text)
+        self.assertIn("apple-oss-distributions/mDNSResponder", workflow)
+        self.assertIn("apple-oss-distributions/mDNSResponder", local_build)
+        self.assertNotIn("x64_RelWithDebInfo.zip", workflow + local_build)
+
+    def test_dns_sd_build_produces_and_installs_the_runtime_and_notices(self):
+        build_script = (ROOT / "scripts" / "windows" / "build_mdns_responder.ps1").read_text(
+            encoding="utf-8"
+        )
+        cmake = (ROOT / "src" / "gui" / "CMakeLists.txt").read_text(encoding="utf-8")
+        installer = (ROOT / "dist" / "inno" / "input-leap.iss.in").read_text(encoding="utf-8")
+
+        for project in (
+            "mDNSWindows\\DLL\\dnssd.vcxproj",
+            "mDNSWindows\\DLLStub\\DLLStub.vcxproj",
+            "mDNSWindows\\SystemService\\mDNSResponder.vcxproj",
+        ):
+            with self.subTest(project=project):
+                self.assertIn(project, build_script)
+        for artifact in (
+            "Bin\\x64\\dnssd.dll",
+            "Bin\\x64\\mDNSResponder.exe",
+            "Licenses\\mDNSResponder\\LICENSE",
+        ):
+            with self.subTest(artifact=artifact):
+                self.assertIn(artifact, build_script)
+        self.assertIn("Bin/x64/dnssd.dll", cmake)
+        self.assertIn("Bin/x64/mDNSResponder.exe", cmake)
+        self.assertIn("Licenses/mDNSResponder/LICENSE", cmake)
+        self.assertIn("IsInputLeapManagedDnsSdService", installer)
+        self.assertIn("BeforeInstall: StopManagedDnsSdService", installer)
+        self.assertIn("AfterInstall: InstallManagedDnsSdService", installer)
+        self.assertIn("-install", installer)
+        self.assertIn("-remove", installer)
 
     def test_application_does_not_download_or_execute_legacy_bonjour_installer(self):
         main_window = (ROOT / "src" / "gui" / "src" / "MainWindow.cpp").read_text(

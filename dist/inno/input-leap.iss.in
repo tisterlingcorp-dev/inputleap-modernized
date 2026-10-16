@@ -8,6 +8,10 @@
 #define MyAppServiceName "InputLeap"
 #define MyAppServiceExe "input-leapd.exe"
 #define MyAppServiceDesc "Manages the InputLeap background processes."
+#define MyDnsSdServiceName "Bonjour Service"
+#define MyDnsSdServiceExe "mDNSResponder.exe"
+#define MyDnsSdMarkerKey "Software\InputLeap\Installer"
+#define MyDnsSdMarkerValue "ManagedDnsSdService"
 #define MyAppListenerDesc "InputLeap Listener"
 #define MyAppFileTransferDesc "InputLeap File Transfer"
 
@@ -43,7 +47,9 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "@CMAKE_INSTALL_PREFIX@/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "@CMAKE_INSTALL_PREFIX@/dnssd.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "@CMAKE_INSTALL_PREFIX@/mDNSResponder.exe"; DestDir: "{app}"; Flags: ignoreversion; BeforeInstall: StopManagedDnsSdService; AfterInstall: InstallManagedDnsSdService
+Source: "@CMAKE_INSTALL_PREFIX@/*"; DestDir: "{app}"; Excludes: "dnssd.dll,mDNSResponder.exe"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "@CMAKE_CURRENT_SOURCE_DIR@/LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "@CMAKE_CURRENT_SOURCE_DIR@/res/License.rtf"; DestDir: "{app}"; DestName: "License.rtf"; Flags: ignoreversion
 Source: "@CMAKE_CURRENT_SOURCE_DIR@/THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
@@ -70,6 +76,7 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 Filename: {sys}\taskkill; Parameters: "/im {#MyAppExeName} /f /t"; Flags: runhidden; RunOnceId: "StopInputLeapGui"
 Filename: {sys}\net.exe; Parameters: "stop {#MyAppServiceName}"; Flags: runhidden; RunOnceId: "StopInputLeapService"
 Filename: {sys}\sc.exe; Parameters: "delete {#MyAppServiceName}"; Flags: runhidden; RunOnceId: "DeleteInputLeapService"
+Filename: "{app}\{#MyDnsSdServiceExe}"; Parameters: "-remove"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveInputLeapManagedDnsSdService"; Check: IsInputLeapManagedDnsSdService
 Filename: {sys}\netsh.exe; Parameters: "advfirewall firewall delete rule name=""{#MyAppListenerDesc}"""; Flags: runhidden; RunOnceId: "DeleteInputLeapListenerFirewallRule"
 Filename: {sys}\netsh.exe; Parameters: "advfirewall firewall delete rule name=""{#MyAppFileTransferDesc}"""; Flags: runhidden; RunOnceId: "DeleteInputLeapFileTransferFirewallRule"
 
@@ -90,6 +97,59 @@ var
 begin
 	ResultCode := -1;
 	Result := Exec(ExpandConstant('{sys}\sc.exe'), 'query {#MyAppServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+end;
+
+function IsDnsSdServiceInstalled(): boolean;
+begin
+	Result := RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\{#MyDnsSdServiceName}');
+end;
+
+function IsInputLeapManagedDnsSdService(): boolean;
+var
+	Managed: string;
+begin
+	Result := RegQueryStringValue(HKLM, '{#MyDnsSdMarkerKey}', '{#MyDnsSdMarkerValue}', Managed) and (Managed = '1');
+end;
+
+procedure StopManagedDnsSdService();
+var
+	ResultCode: Integer;
+begin
+	if IsInputLeapManagedDnsSdService() and IsDnsSdServiceInstalled() then
+		Exec(ExpandConstant('{sys}\net.exe'), 'stop "{#MyDnsSdServiceName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+procedure InstallManagedDnsSdService();
+var
+	ResultCode: Integer;
+begin
+	if IsInputLeapManagedDnsSdService() or not IsDnsSdServiceInstalled() then
+	begin
+		if IsDnsSdServiceInstalled() then
+		begin
+			if not Exec(ExpandConstant('{sys}\net.exe'), 'start "{#MyDnsSdServiceName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+				RaiseException('Could not launch the bundled DNS-SD service start command after upgrade.');
+			if ResultCode <> 0 then
+				RaiseException(Format('Could not restart the InputLeap-managed DNS-SD service after upgrade (exit code %d).', [ResultCode]));
+		end
+		else
+		begin
+			if not Exec(ExpandConstant('{app}\{#MyDnsSdServiceExe}'), '-install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+				RaiseException('Could not launch the bundled DNS-SD service installer.');
+			if ResultCode <> 0 then
+				RaiseException(Format('DNS-SD service installation failed with exit code %d.', [ResultCode]));
+		end;
+		if not IsDnsSdServiceInstalled() then
+			RaiseException('The DNS-SD service did not register after installation.');
+		if not RegWriteStringValue(HKLM, '{#MyDnsSdMarkerKey}', '{#MyDnsSdMarkerValue}', '1') then
+			RaiseException('Could not record ownership of the DNS-SD service installed by InputLeap.');
+	end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+	if (CurUninstallStep = usPostUninstall) and IsInputLeapManagedDnsSdService() then
+		RegDeleteValue(HKLM, '{#MyDnsSdMarkerKey}', '{#MyDnsSdMarkerValue}');
 end;
 
 function InitializeSetup(): boolean;
