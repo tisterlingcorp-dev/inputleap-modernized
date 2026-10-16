@@ -148,7 +148,9 @@ TEST(ConfigurationPortablePreferencesTests, RejectsOutOfRangeAndInconsistentValu
 #if defined(Q_OS_WIN)
     EXPECT_TRUE(decodedDisabledEncryption.preferences->cryptoEnabled());
     EXPECT_TRUE(decodedDisabledEncryption.preferences->requireClientCertificate());
+    EXPECT_TRUE(decodedDisabledEncryption.requestsTransportSecurityDowngrade);
 #else
+    EXPECT_TRUE(decodedDisabledEncryption.requestsTransportSecurityDowngrade);
     EXPECT_FALSE(decodedDisabledEncryption.preferences->cryptoEnabled());
 #endif
 }

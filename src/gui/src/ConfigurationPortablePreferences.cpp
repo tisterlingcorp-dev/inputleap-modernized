@@ -160,12 +160,17 @@ ConfigurationPortablePreferencesCodec::decode(const QJsonObject& object)
     if (!SupportedLanguages.contains(language))
         return {Error::InvalidValue, std::nullopt};
 
+    const bool encodedCryptoEnabled = object.value(CryptoEnabledKey).toBool();
+    const bool encodedRequireClientCertificate =
+        object.value(RequireClientCertificateKey).toBool();
+    const bool requestsTransportSecurityDowngrade =
+        !encodedCryptoEnabled || !encodedRequireClientCertificate;
 #if defined(Q_OS_WIN)
-    const bool cryptoEnabled = true;
-    const bool requireClientCertificate = true;
+    constexpr bool cryptoEnabled = true;
+    constexpr bool requireClientCertificate = true;
 #else
-    const bool cryptoEnabled = object.value(CryptoEnabledKey).toBool();
-    const bool requireClientCertificate = object.value(RequireClientCertificateKey).toBool();
+    const bool cryptoEnabled = encodedCryptoEnabled;
+    const bool requireClientCertificate = encodedRequireClientCertificate;
 #endif
     if (requireClientCertificate && !cryptoEnabled)
         return {Error::InconsistentSecurity, std::nullopt};
@@ -176,5 +181,5 @@ ConfigurationPortablePreferencesCodec::decode(const QJsonObject& object)
         object.value(MinimizeToTrayKey).toBool());
     if (!result)
         return {Error::InvalidValue, std::nullopt};
-    return {Error::None, std::move(result)};
+    return {Error::None, std::move(result), requestsTransportSecurityDowngrade};
 }

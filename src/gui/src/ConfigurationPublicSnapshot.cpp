@@ -48,5 +48,7 @@ ConfigurationPublicSnapshotCodec::decode(const QJsonObject& object)
     ConfigurationPublicSnapshot snapshot;
     snapshot.preferences = *preferences.preferences;
     snapshot.environmentProfiles = std::move(*profiles.collection);
+    snapshot.requestsTransportSecurityDowngrade =
+        preferences.requestsTransportSecurityDowngrade;
     return {Error::None, std::move(snapshot)};
 }

@@ -88,6 +88,8 @@ ConfigurationImportService::apply(const ConfigurationImportPreview::Preview& pre
     const auto& beforeSecurity = original.preferences;
     const auto& afterSecurity = preview.candidate.snapshot.preferences;
     const bool weakensSecurity =
+        preview.candidate.snapshot.requestsTransportSecurityDowngrade ||
+        preview.summary.weakensTransportSecurity ||
         (beforeSecurity.cryptoEnabled() && !afterSecurity.cryptoEnabled()) ||
         (beforeSecurity.requireClientCertificate() &&
          !afterSecurity.requireClientCertificate());

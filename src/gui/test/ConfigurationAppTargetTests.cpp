@@ -674,8 +674,13 @@ TEST(ConfigurationAppTargetTests, EarlyRecoveryRepairsPartialPublicStateBeforePr
     ASSERT_TRUE(journal.begin(original, candidate, candidateSecret));
     settings.setValue(QStringLiteral("cryptoEnabled"), false);
     settings.sync();
+#if defined(Q_OS_WIN)
+    ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+#else
     ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
+#endif
 
     EXPECT_TRUE(AppConfig::recoverInterruptedSave(settings, std::move(store)));
     EXPECT_EQ(StartupSettingsPreflight::inspect(settings),
@@ -721,8 +726,13 @@ TEST(ConfigurationAppTargetTests, AppConfigLoadRecoversInterruptedSaveBeforeStri
     ASSERT_TRUE(journal.begin(original, candidate, candidateSecret));
     settings.setValue(QStringLiteral("cryptoEnabled"), false);
     settings.sync();
+#if defined(Q_OS_WIN)
+    ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+#else
     ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
+#endif
 
     AppConfig config(&settings, makeStore());
 
@@ -1513,8 +1523,13 @@ TEST(ConfigurationAppTargetTests, EarlyImportRecoveryRepairsPartialPreferencesBe
         settings.setValue(QStringLiteral("cryptoEnabled"), false);
         settings.sync();
     }
+#if defined(Q_OS_WIN)
+    EXPECT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+#else
     EXPECT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
+#endif
 
     EXPECT_EQ(ConfigurationAppTarget::recoverPortablePreferencesBeforePreflight(
                   settings, makeStore()),
