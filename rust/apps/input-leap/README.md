@@ -19,9 +19,10 @@ The Tauri bridge currently exposes narrowly scoped commands for:
 - diagnostic network topology and sanitized logs;
 - authoritative runtime status through authenticated local daemon IPC;
 - authenticated runtime start, stop, and reload through daemon IPC;
-- topology updates bound to the daemon's durably applied generation.
+- topology updates bound to the daemon's durably applied generation;
+- a Windows-only, allowlisted launcher for the bundled Qt device/transfer center (the executable must be the trusted sibling `input-leap.exe`).
 
-The Tauri bridge does not yet provide peer discovery, human-confirmed pairing/revocation, or file/clipboard transfer controls. Discovery and transfers available through the legacy C++/Qt application are not automatically exposed by the Tauri UI. Do not treat discovery as authorization or claim full feature parity until those flows are integrated and validated. Generic shell, arbitrary process control, unrestricted filesystem access, and arbitrary network access are not exposed to the frontend.
+Peer discovery, human-confirmed pairing/revocation, and file/clipboard transfer controls still run in the Qt device/transfer center opened by that command; they are not native Tauri screens. Do not treat discovery as authorization or claim full feature parity until those flows are validated end-to-end. Generic shell, arbitrary process control, unrestricted filesystem access, and arbitrary network access are not exposed to the frontend.
 
 ## Local checks
 

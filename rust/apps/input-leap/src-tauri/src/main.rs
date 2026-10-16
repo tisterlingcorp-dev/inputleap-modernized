@@ -996,6 +996,55 @@ fn stop_managed_runtime() -> Result<(), String> {
     wait_for_daemon_ack(&mut stream, &request_nonce, &mut budget)
 }
 
+fn device_manager_executable(app_executable: &Path) -> Result<PathBuf, String> {
+    let app_executable = fs::canonicalize(app_executable)
+        .map_err(|error| format!("cannot resolve the Input Leap controller path: {error}"))?;
+    let app_name = app_executable
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "Input Leap controller has an invalid executable name".to_string())?;
+    let expected_app = if cfg!(windows) {
+        "input-leap-tauri.exe"
+    } else {
+        "input-leap-tauri"
+    };
+    if !app_name.eq_ignore_ascii_case(expected_app) {
+        return Err(
+            "device manager can only be opened by the installed Input Leap controller".to_string(),
+        );
+    }
+
+    let directory = app_executable
+        .parent()
+        .ok_or_else(|| "Input Leap controller has no installation directory".to_string())?;
+    let manager_name = if cfg!(windows) {
+        "input-leap.exe"
+    } else {
+        "input-leap"
+    };
+    let manager = fs::canonicalize(directory.join(manager_name))
+        .map_err(|error| format!("Input Leap device manager is unavailable: {error}"))?;
+    if manager.parent() != Some(directory) || !manager.is_file() {
+        return Err("Input Leap device manager is not a trusted sibling executable".to_string());
+    }
+    Ok(manager)
+}
+
+#[tauri::command]
+fn open_device_transfer_center() -> Result<(), String> {
+    if !cfg!(windows) {
+        return Err(
+            "the device and transfer center is currently available on Windows only".to_string(),
+        );
+    }
+    let controller = env::current_exe()
+        .map_err(|error| format!("cannot resolve the Input Leap controller: {error}"))?;
+    let manager = device_manager_executable(&controller)?;
+    Command::new(manager).spawn().map(|_| ()).map_err(|error| {
+        format!("could not open the Input Leap device and transfer center: {error}")
+    })
+}
+
 fn apply_topology_on_stream_with_timeout(
     stream: &mut TcpStream,
     payload: &str,
@@ -2100,6 +2149,7 @@ fn main() {
             stop_managed_runtime,
             reload_runtime,
             apply_topology,
+            open_device_transfer_center,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -2456,7 +2506,9 @@ ESTAB 0 0 192.0.2.121:24800 192.0.2.175:32828 users:((\"input-leaps\",pid=59644,
         let html = fs::read_to_string(manifest_dir.join("../ui/index.html"))
             .expect("index.html should be readable");
 
-        assert_eq!(html.matches("<button").count(), 9);
+        assert_eq!(html.matches("<button").count(), 10);
+        assert!(html.contains("id=\"open-device-transfer-center\""));
+        assert!(html.contains("invoke('open_device_transfer_center')"));
         assert!(html.contains("id=\"refresh\""));
         assert!(html.contains("reload_runtime"));
         assert!(html.contains("invoke('apply_topology'"));
@@ -2530,6 +2582,36 @@ ESTAB 0 0 192.0.2.121:24800 192.0.2.175:32828 users:((\"input-leaps\",pid=59644,
         assert!(html.contains("refreshInFlight = true;"));
         assert!(html.contains("refreshInFlight = false;"));
         assert!(html.contains("error.textContent ="));
+    }
+
+    #[test]
+    fn device_transfer_center_resolves_only_the_installed_sibling_gui() {
+        let test_dir = env::temp_dir().join(format!(
+            "input-leap-device-center-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock should be after epoch")
+                .as_nanos()
+        ));
+        fs::create_dir(&test_dir).expect("temporary test directory should be created");
+        let (controller_name, manager_name) = if cfg!(windows) {
+            ("input-leap-tauri.exe", "input-leap.exe")
+        } else {
+            ("input-leap-tauri", "input-leap")
+        };
+        let controller = test_dir.join(controller_name);
+        let manager = test_dir.join(manager_name);
+        fs::write(&controller, b"controller").expect("controller fixture should be written");
+        fs::write(&manager, b"manager").expect("manager fixture should be written");
+
+        assert_eq!(
+            device_manager_executable(&controller).unwrap(),
+            fs::canonicalize(&manager).unwrap()
+        );
+        assert!(device_manager_executable(&manager).is_err());
+
+        fs::remove_dir_all(test_dir).expect("temporary test directory should be removed");
     }
 
     #[test]

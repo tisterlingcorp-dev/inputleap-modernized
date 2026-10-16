@@ -234,6 +234,7 @@
             <button id="runtime-toggle" class="refresh runtime-action" type="button" aria-label="Recarregar runtime C++">Recarregar runtime</button>
             <button id="runtime-start" class="refresh runtime-action" type="button">Iniciar runtime</button>
             <button id="runtime-stop" class="refresh runtime-action" type="button">Parar runtime</button>
+            <button id="open-device-transfer-center" class="refresh" type="button" title="Abre a central Qt de dispositivos, pareamento e transferências">Dispositivos e transferências</button>
             <button id="refresh" class="refresh" type="button" aria-label="Atualizar estado da conexão">Atualizar</button>
             <button id="toggle-settings" class="refresh" type="button" aria-expanded="false">Configurações</button>
             <span class="shortcut-hint" role="note">Atalhos: R atualiza · L recarrega</span>
@@ -790,6 +791,22 @@
       });
       byId('runtime-stop').addEventListener('click', (event) => {
         runRuntimeAction('stop_managed_runtime', event.currentTarget);
+      });
+      byId('open-device-transfer-center').addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+        const invoke = invokeAvailable();
+        if (!invoke || button.disabled) return;
+        const wasDisabled = button.disabled;
+        button.disabled = true;
+        try {
+          await invoke('open_device_transfer_center');
+        } catch (error) {
+          const target = byId('runtime-error');
+          target.style.display = 'block';
+          target.textContent = `Não foi possível abrir dispositivos e transferências: ${error?.toString?.() || error}`;
+        } finally {
+          button.disabled = wasDisabled;
+        }
       });
       byId('toggle-settings').addEventListener('click', (event) => {
         const open = event.currentTarget.getAttribute('aria-expanded') !== 'true';
