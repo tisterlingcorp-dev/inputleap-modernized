@@ -143,6 +143,20 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertIn("does not include the complete corresponding Qt source code or a written offer", notices)
         self.assertIn("Do not distribute this candidate", notices)
 
+    def test_legacy_baseline_installer_is_not_required_to_have_new_qt_legal_payload(self):
+        workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
+        smoke = workflow.split("- name: Smoke-test Windows installer lifecycle", 1)[1].split(
+            "- uses: actions/upload-artifact", 1
+        )[0]
+
+        self.assertIn("[bool]$requireCurrentLegalPayload = $true", smoke)
+        self.assertIn("if ($requireCurrentLegalPayload)", smoke)
+        self.assertIn("Install-Package $previousPath 'Previous' $false $false", smoke)
+        self.assertIn("Install-Package $previousPath 'Rollback' $false $false", smoke)
+        self.assertIn("Install-Package $installer.FullName 'Current upgrade'", smoke)
+        self.assertIn("Install-Package $installer.FullName 'Current repair/reinstall'", smoke)
+        self.assertIn("Assert-InstalledPackage '' $requireMdns $requireCurrentLegalPayload", smoke)
+
     def test_windows_package_records_and_verifies_exact_deployed_qt_payload(self):
         workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
         build = workflow.split("- name: Run build system", 1)[1].split("- name:", 1)[0]

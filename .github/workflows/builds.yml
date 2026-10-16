@@ -731,17 +731,22 @@ jobs:
             throw 'Windows runner already has a DNS-SD service; managed-service lifecycle test requires a clean baseline'
           }
 
-          function Assert-InstalledPackage([string]$expectedRuntimeHash = '', [bool]$requireMdns = $true) {
-            foreach ($file in @('input-leap-tauri.exe', 'input-leap.exe', 'input-leaps.exe', 'input-leapc.exe', 'input-leapd.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'licenses\Qt\GPL-3.0.txt', 'licenses\Qt\LGPL-3.0.txt', 'licenses\Qt\DEPLOYED-PAYLOAD.json')) {
+          function Assert-InstalledPackage([string]$expectedRuntimeHash = '', [bool]$requireMdns = $true, [bool]$requireCurrentLegalPayload = $true) {
+            foreach ($file in @('input-leap-tauri.exe', 'input-leap.exe', 'input-leaps.exe', 'input-leapc.exe', 'input-leapd.exe')) {
               if (-not (Test-Path (Join-Path $installDir $file))) { throw "Required installed file missing: $file" }
             }
-            $qtPayload = @(Get-Content -Raw -LiteralPath (Join-Path $installDir 'licenses\Qt\DEPLOYED-PAYLOAD.json') | ConvertFrom-Json)
-            if ($qtPayload.Count -eq 0) { throw 'Installed Qt deployed-payload manifest is empty' }
-            foreach ($entry in $qtPayload) {
-              $qtPath = Join-Path $installDir $entry.path.Replace('/', '\')
-              if (-not (Test-Path -LiteralPath $qtPath -PathType Leaf)) { throw "Installed Qt payload file missing: $($entry.path)" }
-              $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $qtPath).Hash.ToLowerInvariant()
-              if ($actualHash -ne $entry.sha256) { throw "Installed Qt payload hash mismatch: $($entry.path)" }
+            if ($requireCurrentLegalPayload) {
+              foreach ($file in @('LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'licenses\Qt\GPL-3.0.txt', 'licenses\Qt\LGPL-3.0.txt', 'licenses\Qt\DEPLOYED-PAYLOAD.json')) {
+                if (-not (Test-Path (Join-Path $installDir $file))) { throw "Required installed legal file missing: $file" }
+              }
+              $qtPayload = @(Get-Content -Raw -LiteralPath (Join-Path $installDir 'licenses\Qt\DEPLOYED-PAYLOAD.json') | ConvertFrom-Json)
+              if ($qtPayload.Count -eq 0) { throw 'Installed Qt deployed-payload manifest is empty' }
+              foreach ($entry in $qtPayload) {
+                $qtPath = Join-Path $installDir $entry.path.Replace('/', '\')
+                if (-not (Test-Path -LiteralPath $qtPath -PathType Leaf)) { throw "Installed Qt payload file missing: $($entry.path)" }
+                $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $qtPath).Hash.ToLowerInvariant()
+                if ($actualHash -ne $entry.sha256) { throw "Installed Qt payload hash mismatch: $($entry.path)" }
+              }
             }
             if ($requireMdns) {
               foreach ($file in @('dnssd.dll', 'mDNSResponder.exe', 'licenses\mDNSResponder\LICENSE', 'licenses\mDNSResponder\LICENSE-APACHE-2.0.txt', 'licenses\mDNSResponder\SOURCE.txt', 'licenses\mDNSResponder\SHA256SUMS.txt')) {
@@ -753,15 +758,17 @@ jobs:
                 throw "Installer unexpectedly bundles a proprietary Bonjour installer: $forbidden"
               }
             }
-            $notices = Get-Content -Raw -LiteralPath (Join-Path $installDir 'THIRD_PARTY_NOTICES.md')
-            if ($notices -notmatch 'licenses/Qt/GPL-3\.0\.txt' -or $notices -notmatch 'licenses/Qt/LGPL-3\.0\.txt') {
-              throw 'Installed third-party notices do not identify both Qt license texts'
-            }
-            if ($notices -notmatch 'Do not distribute this candidate until the source/offer and technical relinking obligations are demonstrated') {
-              throw 'Installed third-party notices do not preserve the unresolved Qt distribution blocker'
-            }
-            if ($requireMdns -and $notices -notmatch 'f783506af3836b39b83fc14115bc2728a49db4b2') {
-              throw 'Installed third-party notices do not identify the bundled DNS-SD source revision'
+            if ($requireCurrentLegalPayload) {
+              $notices = Get-Content -Raw -LiteralPath (Join-Path $installDir 'THIRD_PARTY_NOTICES.md')
+              if ($notices -notmatch 'licenses/Qt/GPL-3\.0\.txt' -or $notices -notmatch 'licenses/Qt/LGPL-3\.0\.txt') {
+                throw 'Installed third-party notices do not identify both Qt license texts'
+              }
+              if ($notices -notmatch 'Do not distribute this candidate until the source/offer and technical relinking obligations are demonstrated') {
+                throw 'Installed third-party notices do not preserve the unresolved Qt distribution blocker'
+              }
+              if ($requireMdns -and $notices -notmatch 'f783506af3836b39b83fc14115bc2728a49db4b2') {
+                throw 'Installed third-party notices do not identify the bundled DNS-SD source revision'
+              }
             }
             $service = Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue
             if ($null -eq $service) { throw 'InputLeap service missing after install' }
@@ -781,10 +788,10 @@ jobs:
             }
           }
 
-          function Install-Package([string]$packagePath, [string]$label, [bool]$requireMdns = $true) {
+          function Install-Package([string]$packagePath, [string]$label, [bool]$requireMdns = $true, [bool]$requireCurrentLegalPayload = $true) {
             $result = Start-Process -FilePath $packagePath -ArgumentList $silentArgs -Wait -PassThru
             if ($result.ExitCode -ne 0) { throw "$label installer failed with exit code $($result.ExitCode)" }
-            Assert-InstalledPackage '' $requireMdns
+            Assert-InstalledPackage '' $requireMdns $requireCurrentLegalPayload
           }
 
           function Uninstall-Package([bool]$expectManagedMdnsRemoval = $true) {
@@ -810,7 +817,7 @@ jobs:
 
           if ($env:INPUTLEAP_PREVIOUS_INSTALLER) {
             $previousPath = $env:INPUTLEAP_PREVIOUS_INSTALLER
-            Install-Package $previousPath 'Previous' $false
+            Install-Package $previousPath 'Previous' $false $false
             $previousInstalledHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $installDir 'input-leapd.exe')).Hash
 
             Install-Package $installer.FullName 'Current upgrade'
@@ -826,8 +833,8 @@ jobs:
             if (-not (Test-Path -LiteralPath $repairTarget -PathType Leaf)) { throw 'Repair did not restore the missing client executable' }
             Uninstall-Package
 
-            Install-Package $previousPath 'Rollback' $false
-            Assert-InstalledPackage $previousInstalledHash $false
+            Install-Package $previousPath 'Rollback' $false $false
+            Assert-InstalledPackage $previousInstalledHash $false $false
             Uninstall-Package
           } else {
             foreach ($attempt in 1..2) {
