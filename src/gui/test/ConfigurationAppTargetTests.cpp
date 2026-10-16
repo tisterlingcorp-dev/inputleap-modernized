@@ -673,13 +673,8 @@ TEST(ConfigurationAppTargetTests, EarlyRecoveryRepairsPartialPublicStateBeforePr
     ASSERT_TRUE(journal.begin(original, candidate, candidateSecret));
     settings.setValue(QStringLiteral("port"), 0);
     settings.sync();
-#if defined(Q_OS_WIN)
-    ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
-              StartupSettingsPreflight::Status::Valid);
-#else
     ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
-#endif
 
     EXPECT_TRUE(AppConfig::recoverInterruptedSave(settings, std::move(store)));
     EXPECT_EQ(StartupSettingsPreflight::inspect(settings),
@@ -817,8 +812,13 @@ TEST(ConfigurationAppTargetTests, StartupRecoveryOrchestratorRepairsBeforeStrict
     ASSERT_TRUE(journal.begin(original, candidate, candidateSecret));
     settings.setValue(QStringLiteral("cryptoEnabled"), false);
     settings.sync();
+#if defined(Q_OS_WIN)
+    ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+#else
     ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
+#endif
 
     EXPECT_TRUE(ConfigurationAppTarget::recoverStartupStateBeforePreflight(
         settings, makeStore()));
