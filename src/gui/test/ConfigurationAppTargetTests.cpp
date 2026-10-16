@@ -666,13 +666,12 @@ TEST(ConfigurationAppTargetTests, EarlyRecoveryRepairsPartialPublicStateBeforePr
         });
     const QJsonObject original = AppConfigSettingsJournal::capture(settings);
     QJsonObject candidate = original;
-    candidate.insert(QStringLiteral("cryptoEnabled"), false);
-    candidate.insert(QStringLiteral("requireClientCertificate"), false);
+    candidate.insert(QStringLiteral("port"), 0);
     std::optional<SensitiveBytes> candidateSecret;
     candidateSecret.emplace(QByteArrayLiteral("NEW-CODE"));
     AppConfigSettingsJournal journal(settings, store);
     ASSERT_TRUE(journal.begin(original, candidate, candidateSecret));
-    settings.setValue(QStringLiteral("cryptoEnabled"), false);
+    settings.setValue(QStringLiteral("port"), 0);
     settings.sync();
 #if defined(Q_OS_WIN)
     ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
