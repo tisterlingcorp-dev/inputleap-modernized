@@ -16,6 +16,7 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
             encoding="utf-8"
         )
         notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+        installer = (ROOT / "dist" / "inno" / "input-leap.iss.in").read_text(encoding="utf-8")
 
         for path, text in (
             ("workflow", workflow),
@@ -27,6 +28,7 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
                 self.assertIn(MDNS_REVISION, text)
         self.assertIn("apple-oss-distributions/mDNSResponder", workflow)
         self.assertIn("apple-oss-distributions/mDNSResponder", local_build)
+        self.assertIn('DestName: "THIRD_PARTY_NOTICES.md"', installer)
         self.assertNotIn("x64_RelWithDebInfo.zip", workflow + local_build)
 
     def test_dns_sd_build_produces_and_installs_the_runtime_and_notices(self):
@@ -53,6 +55,7 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertIn("Bin/x64/dnssd.dll", cmake)
         self.assertIn("Bin/x64/mDNSResponder.exe", cmake)
         self.assertIn("Licenses/mDNSResponder/LICENSE", cmake)
+        self.assertIn('DestName: "THIRD_PARTY_NOTICES.md"', installer)
         self.assertIn("IsInputLeapManagedDnsSdService", installer)
         self.assertIn("BeforeInstall: StopManagedDnsSdService", installer)
         self.assertIn("AfterInstall: InstallManagedDnsSdService", installer)
