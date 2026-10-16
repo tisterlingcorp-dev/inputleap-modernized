@@ -939,11 +939,11 @@ jobs:
           source_dir="$RUNNER_TEMP/qt-source-6.8.3"
           mkdir -p "$source_dir"
           curl --fail --location --retry 5 --retry-all-errors \
-            "https://download.qt.io/official_releases/qt/6.8/6.8.3/single/$archive" \
+            "https://download.qt.io/archive/qt/6.8/6.8.3/single/$archive" \
             --output "$source_dir/$archive"
           printf '%s  %s\n' "$expected" "$source_dir/$archive" | sha256sum --check --status
           printf '%s  %s\n' "$expected" "$archive" > "$source_dir/Qt-SOURCE-SHA256SUMS.txt"
-          printf 'Qt 6.8.3 upstream source archive\nURL: https://download.qt.io/official_releases/qt/6.8/6.8.3/single/%s\nSHA-256: %s\nLicense selection in InputLeap package: GPL-2.0-only, subject to deployed component audit.\n' \
+          printf 'Qt 6.8.3 upstream source archive\nURL: https://download.qt.io/archive/qt/6.8/6.8.3/single/%s\nSHA-256: %s\nLicense selection in InputLeap package: GPL-2.0-only, subject to deployed component audit.\n' \
             "$archive" "$expected" > "$source_dir/Qt-SOURCE.txt"
 
       - uses: actions/upload-artifact@v7

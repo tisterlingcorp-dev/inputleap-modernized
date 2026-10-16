@@ -3,7 +3,7 @@ Qt 6.8.3 corresponding source information
 
 The Windows package uses Qt 6.8.3. The corresponding upstream source release is:
 
-  https://download.qt.io/official_releases/qt/6.8/6.8.3/single/qt-everywhere-src-6.8.3.tar.xz
+  https://download.qt.io/archive/qt/6.8/6.8.3/single/qt-everywhere-src-6.8.3.tar.xz
 
 Expected SHA-256:
 
