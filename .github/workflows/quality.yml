@@ -40,7 +40,7 @@ jobs:
         run: cmake --preset asan
 
       - name: Build
-        run: cmake --build --preset asan --parallel
+        run: cmake --build --preset asan --parallel 2
 
       - name: Test
         env:
@@ -103,4 +103,4 @@ jobs:
         run: cmake --preset clang-tidy
 
       - name: Analyze while building
-        run: cmake --build --preset clang-tidy --parallel
+        run: cmake --build --preset clang-tidy --parallel 2

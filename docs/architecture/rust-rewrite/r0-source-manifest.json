@@ -7,7 +7,7 @@
   "snapshotKind": "dirty-working-tree-content-manifest",
   "branchAtFreeze": "fix/tls-rejected-socket-cleanup",
   "pathCount": 79,
-  "contentDigest": "a308532272d0da6bf078445d7f71ac7c1b69dc0153831d2d50ce167cbec5bfa9",
+  "contentDigest": "3d04f83b5fd20e46ad6a7598c2abb7a75abea458ef6822a6da0ced22004d9dc0",
   "files": [
     {
       "path": ".gitignore",
@@ -29,9 +29,9 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 16566,
+      "size": 16770,
       "hashMode": "canonical-lf",
-      "sha256": "a39a5f8c26aa26270a4ec2d301a1e57faf85a31f9920d93572592ca4c861a0c0"
+      "sha256": "cd63feb041cac32a2fef1481fbbf2c3533c02498a33c3b8a8a98e36706e17590"
     },
     {
       "path": "cmake/ProjectOptions.cmake",

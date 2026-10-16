@@ -501,9 +501,9 @@ jobs:
 
       - name: Run build system
         run: |
-          cmake --build build --config $env:B_BUILD_TYPE --target input-leap-tauri
+          cmake --build build --config $env:B_BUILD_TYPE --target input-leap-tauri --parallel 2
           if ($LASTEXITCODE -ne 0) { throw "Tauri controller build failed with exit code $LASTEXITCODE" }
-          cmake --build build --config $env:B_BUILD_TYPE --target install
+          cmake --build build --config $env:B_BUILD_TYPE --target install --parallel 2
           if ($LASTEXITCODE -ne 0) { throw "CMake install failed with exit code $LASTEXITCODE" }
           $installDir = Resolve-Path .\build\input-leap-install
 
