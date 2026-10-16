@@ -505,6 +505,30 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Tauri controller build failed with exit code $LASTEXITCODE" }
           cmake --build build --config $env:B_BUILD_TYPE --target install
           if ($LASTEXITCODE -ne 0) { throw "CMake install failed with exit code $LASTEXITCODE" }
+          $installDir = Resolve-Path .\build\input-leap-install
+
+          # Record the exact Qt runtime payload selected by windeployqt. This
+          # manifest is evidence for license review, not an automated license
+          # determination; do not infer module terms from DLL names alone.
+          $qtFiles = @(Get-ChildItem -LiteralPath $installDir -Recurse -File | Where-Object {
+            $_.Name -match '^Qt6.*\.dll$' -or
+            ($_.Extension -ieq '.dll' -and $_.DirectoryName -match '[\\/]plugins([\\/]|$)')
+          } | Sort-Object { $_.FullName.Substring($installDir.Path.Length).TrimStart([char[]]@('\', '/')) })
+          if ($qtFiles.Count -eq 0) { throw 'No deployed Qt libraries or plugins found in the Windows install tree' }
+          $qtManifest = foreach ($file in $qtFiles) {
+            $relativePath = $file.FullName.Substring($installDir.Path.Length).TrimStart([char[]]@('\', '/')).Replace('\', '/')
+            $versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($file.FullName)
+            [pscustomobject]@{
+              path = $relativePath
+              length = $file.Length
+              sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+              productVersion = $versionInfo.ProductVersion
+              fileVersion = $versionInfo.FileVersion
+            }
+          }
+          $qtManifestPath = Join-Path $installDir 'licenses\Qt\DEPLOYED-PAYLOAD.json'
+          New-Item -ItemType Directory -Path (Split-Path -Parent $qtManifestPath) -Force | Out-Null
+          $qtManifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $qtManifestPath -Encoding utf8
           $env:QT_QPA_PLATFORM = "windows"
           ctest --test-dir build -C $env:B_BUILD_TYPE --output-on-failure
 
@@ -618,14 +642,25 @@ jobs:
             $purls = @($components | Where-Object { $_.purl }).Count
             if ($name -eq 'input-leap-windows-x64.cdx.json') {
               $componentNames = @($components | ForEach-Object { ($_.name -replace '\\', '/').Split('/')[-1] })
-              foreach ($required in @('dnssd.dll', 'mDNSResponder.exe', 'input-leap.exe', 'input-leapc.exe', 'input-leaps.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'GPL-3.0.txt', 'LGPL-3.0.txt', 'LICENSE', 'LICENSE-APACHE-2.0.txt', 'SOURCE.txt', 'SHA256SUMS.txt')) {
+              foreach ($required in @('dnssd.dll', 'mDNSResponder.exe', 'input-leap.exe', 'input-leapc.exe', 'input-leaps.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'GPL-3.0.txt', 'LGPL-3.0.txt', 'DEPLOYED-PAYLOAD.json', 'LICENSE', 'LICENSE-APACHE-2.0.txt', 'SOURCE.txt', 'SHA256SUMS.txt')) {
                 if ($componentNames -notcontains $required) { throw "Windows installer SBOM does not inventory required runtime/provenance/legal file: $required" }
+              }
+              $qtPayloadPath = Join-Path $PWD 'build\windows-installer-sbom-input\licenses\Qt\DEPLOYED-PAYLOAD.json'
+              $qtPayload = @(Get-Content -Raw -LiteralPath $qtPayloadPath | ConvertFrom-Json)
+              if ($qtPayload.Count -eq 0) { throw 'Qt deployed-payload manifest is empty' }
+              foreach ($entry in $qtPayload) {
+                if (-not $entry.path -or $entry.sha256 -notmatch '^[0-9a-f]{64}$' -or -not $entry.productVersion) {
+                  throw "Qt deployed-payload entry is incomplete: $($entry.path)"
+                }
+                if ($componentNames -notcontains (Split-Path -Leaf $entry.path)) {
+                  throw "Windows package SBOM omits deployed Qt payload file: $($entry.path)"
+                }
               }
               $fileComponents = @($components | Where-Object { $_.type -eq 'file' })
               $missingHashes = @($fileComponents | Where-Object { @($_.hashes | Where-Object { $_.alg -eq 'SHA-256' -and $_.content }).Count -eq 0 })
               if ($missingHashes.Count -gt 0) { throw "Windows package SBOM has $($missingHashes.Count) file components without SHA-256 hashes" }
               if (-not $bom.metadata.component.name) { throw 'Windows package SBOM has no root package component' }
-              Write-Host "$name components=$($components.Count) file_components=$($fileComponents.Count) sha256=$($fileComponents.Count) required_payload_files=14"
+              Write-Host "$name components=$($components.Count) file_components=$($fileComponents.Count) sha256=$($fileComponents.Count) qt_payload_files=$($qtPayload.Count) required_payload_files=15"
             } else {
               if ($purls -lt 10) { throw "SBOM has insufficient package identifiers: $name ($purls)" }
               $edges = @($bom.dependencies | Where-Object { @($_.dependsOn).Count -gt 0 }).Count
@@ -697,8 +732,16 @@ jobs:
           }
 
           function Assert-InstalledPackage([string]$expectedRuntimeHash = '', [bool]$requireMdns = $true) {
-            foreach ($file in @('input-leap-tauri.exe', 'input-leap.exe', 'input-leaps.exe', 'input-leapc.exe', 'input-leapd.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'licenses\Qt\GPL-3.0.txt', 'licenses\Qt\LGPL-3.0.txt')) {
+            foreach ($file in @('input-leap-tauri.exe', 'input-leap.exe', 'input-leaps.exe', 'input-leapc.exe', 'input-leapd.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'licenses\Qt\GPL-3.0.txt', 'licenses\Qt\LGPL-3.0.txt', 'licenses\Qt\DEPLOYED-PAYLOAD.json')) {
               if (-not (Test-Path (Join-Path $installDir $file))) { throw "Required installed file missing: $file" }
+            }
+            $qtPayload = @(Get-Content -Raw -LiteralPath (Join-Path $installDir 'licenses\Qt\DEPLOYED-PAYLOAD.json') | ConvertFrom-Json)
+            if ($qtPayload.Count -eq 0) { throw 'Installed Qt deployed-payload manifest is empty' }
+            foreach ($entry in $qtPayload) {
+              $qtPath = Join-Path $installDir $entry.path.Replace('/', '\')
+              if (-not (Test-Path -LiteralPath $qtPath -PathType Leaf)) { throw "Installed Qt payload file missing: $($entry.path)" }
+              $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $qtPath).Hash.ToLowerInvariant()
+              if ($actualHash -ne $entry.sha256) { throw "Installed Qt payload hash mismatch: $($entry.path)" }
             }
             if ($requireMdns) {
               foreach ($file in @('dnssd.dll', 'mDNSResponder.exe', 'licenses\mDNSResponder\LICENSE', 'licenses\mDNSResponder\LICENSE-APACHE-2.0.txt', 'licenses\mDNSResponder\SOURCE.txt', 'licenses\mDNSResponder\SHA256SUMS.txt')) {

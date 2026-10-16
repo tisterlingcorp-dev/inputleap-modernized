@@ -143,6 +143,26 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertIn("does not include the complete corresponding Qt source code or a written offer", notices)
         self.assertIn("Do not distribute this candidate", notices)
 
+    def test_windows_package_records_and_verifies_exact_deployed_qt_payload(self):
+        workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
+        build = workflow.split("- name: Run build system", 1)[1].split("- name:", 1)[0]
+        sbom = workflow.split("- name: Validate dependency SBOM coverage", 1)[1].split(
+            "- name:", 1
+        )[0]
+        smoke = workflow.split("- name: Smoke-test Windows installer lifecycle", 1)[1].split(
+            "- name:", 1
+        )[0]
+
+        self.assertIn("DEPLOYED-PAYLOAD.json", build)
+        self.assertIn("FileVersionInfo]::GetVersionInfo", build)
+        self.assertIn("Get-FileHash -Algorithm SHA256", build)
+        self.assertIn("manifest is evidence for license review", build)
+        self.assertIn("DEPLOYED-PAYLOAD.json", sbom)
+        self.assertIn("$qtPayload.Count -eq 0", sbom)
+        self.assertIn("$componentNames -notcontains (Split-Path -Leaf $entry.path)", sbom)
+        self.assertIn("licenses\\Qt\\DEPLOYED-PAYLOAD.json", smoke)
+        self.assertIn("$actualHash -ne $entry.sha256", smoke)
+
 
 if __name__ == "__main__":
     unittest.main()
