@@ -325,6 +325,29 @@ TEST(FileTransferServiceTests, FileReceivedCarriesAuthenticatedPeerUuid)
     EXPECT_FALSE(arguments.at(4).toByteArray().isEmpty());
 }
 
+TEST(FileTransferServiceTests, RejectsWrongPerDeviceTlsPskBeforeFileSideEffects)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const QString source = createFile(directory, QStringLiteral("source.txt"), QByteArrayLiteral("must not arrive"));
+    ASSERT_FALSE(source.isEmpty());
+    const QString receiveDirectory = directory.filePath(QStringLiteral("received"));
+    const QUuid peerUuid = QUuid::createUuid();
+    const QByteArray expectedKey(32, 'k');
+    const QByteArray wrongKey(32, 'x');
+
+    FileTransferService receiver;
+    receiver.setReceivePermissionCallback([](const QUuid&) { return true; });
+    receiver.setReceiveDirectory(receiveDirectory);
+    receiver.setDevicePreSharedKey(peerUuid, expectedKey);
+    ASSERT_TRUE(receiver.startListening(0));
+
+    QString error;
+    EXPECT_FALSE(sendItemsAndProcessEvents(receiver,
+        {{source, QStringLiteral("source.txt")}}, &error, {}, {}, peerUuid, wrongKey));
+    EXPECT_FALSE(QFile::exists(QDir(receiveDirectory).filePath(QStringLiteral("source.txt"))));
+}
+
 TEST(FileTransferServiceTests, KeepsExistingDestinationAndAddsCollisionSuffix)
 {
     REQUIRE_ATOMIC_FILE_PUBLISH();
