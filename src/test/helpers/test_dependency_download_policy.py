@@ -90,6 +90,19 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
                 self.assertNotIn(forbidden, main_window)
                 self.assertNotIn(forbidden, main_window_header)
 
+    def test_windows_package_sbom_is_validated_for_runtime_inventory_and_hashes(self):
+        workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
+        validation = workflow.split("- name: Validate dependency SBOM coverage", 1)[1].split(
+            "- name:", 1
+        )[0]
+
+        self.assertIn("input-leap-windows-x64.cdx.json", validation)
+        self.assertIn("$bom.metadata.component.name", validation)
+        self.assertIn("$_.hashes | Where-Object { $_.alg -eq 'SHA-256' -and $_.content }", validation)
+        for component in ("dnssd.dll", "mDNSResponder.exe", "input-leap.exe", "input-leapc.exe", "input-leaps.exe"):
+            with self.subTest(component=component):
+                self.assertIn(component, validation)
+
 
 if __name__ == "__main__":
     unittest.main()
