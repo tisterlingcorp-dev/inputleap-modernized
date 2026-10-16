@@ -39,7 +39,7 @@ foreach ($name in $sbomNames) {
         foreach ($required in @(
             'dnssd.dll', 'mDNSResponder.exe', 'input-leap.exe', 'input-leapc.exe',
             'input-leaps.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md',
-            'GPL-3.0.txt', 'LGPL-3.0.txt', 'DEPLOYED-PAYLOAD.json', 'LICENSE',
+            'GPL-2.0.txt', 'DEPLOYED-PAYLOAD.json', 'LICENSE',
             'LICENSE-APACHE-2.0.txt', 'SOURCE.txt', 'SHA256SUMS.txt'
         )) {
             if ($componentNames -notcontains $required) { throw "Windows SBOM omits: $required" }
@@ -72,8 +72,8 @@ if ($result.ExitCode -ne 0) { throw "Installer failed with exit code $($result.E
 foreach ($file in @(
     'input-leap-tauri.exe', 'input-leap.exe', 'input-leaps.exe',
     'input-leapc.exe', 'input-leapd.exe', 'LICENSE.txt', 'License.rtf',
-    'THIRD_PARTY_NOTICES.md', 'licenses\Qt\GPL-3.0.txt',
-    'licenses\Qt\LGPL-3.0.txt', 'licenses\Qt\DEPLOYED-PAYLOAD.json',
+    'THIRD_PARTY_NOTICES.md', 'licenses\Qt\GPL-2.0.txt',
+    'licenses\Qt\SOURCE.txt', 'licenses\Qt\DEPLOYED-PAYLOAD.json',
     'dnssd.dll', 'mDNSResponder.exe', 'licenses\mDNSResponder\LICENSE',
     'licenses\mDNSResponder\LICENSE-APACHE-2.0.txt',
     'licenses\mDNSResponder\SOURCE.txt', 'licenses\mDNSResponder\SHA256SUMS.txt'
@@ -95,12 +95,19 @@ foreach ($entry in $qtPayload) {
 }
 
 $notices = Get-Content -Raw -LiteralPath (Join-Path $installDir 'THIRD_PARTY_NOTICES.md')
-if ($notices -notmatch 'licenses/Qt/GPL-3\.0\.txt' -or
-    $notices -notmatch 'licenses/Qt/LGPL-3\.0\.txt') {
-    throw 'Third-party notices do not identify both Qt license texts'
+$qtLicense = Get-Content -Raw -LiteralPath (Join-Path $installDir 'licenses\Qt\GPL-2.0.txt')
+if ($qtLicense -notmatch '^GNU GENERAL PUBLIC LICENSE\s+Version 2, June 1991') {
+    throw 'Installed Qt license file is not the complete GPL-2.0 text'
 }
-if ($notices -notmatch 'Do not distribute this candidate until the source/offer and technical relinking obligations are demonstrated') {
-    throw 'Third-party notices do not preserve the unresolved Qt distribution blocker'
+if ($qtLicense -match 'OpenSSL is allowed') {
+    throw 'InputLeap OpenSSL exception was incorrectly included in Qt license text'
+}
+if ($notices -notmatch 'licenses/Qt/GPL-2\.0\.txt' -or
+    $notices -notmatch 'GPL-2\.0-only') {
+    throw 'Third-party notices do not identify the selected Qt GPL-2.0-only terms'
+}
+if ($notices -notmatch 'distribution gate remains closed until') {
+    throw 'Third-party notices do not preserve the unresolved Qt distribution gate'
 }
 if ($notices -notmatch 'f783506af3836b39b83fc14115bc2728a49db4b2') {
     throw 'Third-party notices do not identify the bundled DNS-SD source revision'

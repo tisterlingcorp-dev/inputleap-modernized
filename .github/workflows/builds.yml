@@ -431,7 +431,7 @@ jobs:
        include:
          - name: Windows Qt6
            os: windows-2022
-           qt-version: 6.8
+           qt-version: 6.8.3
            qt-modules: ''
 
     steps:
@@ -667,7 +667,7 @@ jobs:
             $purls = @($components | Where-Object { $_.purl }).Count
             if ($name -eq 'input-leap-windows-x64.cdx.json') {
               $componentNames = @($components | ForEach-Object { ($_.name -replace '\\', '/').Split('/')[-1] })
-              foreach ($required in @('dnssd.dll', 'mDNSResponder.exe', 'input-leap.exe', 'input-leapc.exe', 'input-leaps.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'GPL-3.0.txt', 'LGPL-3.0.txt', 'DEPLOYED-PAYLOAD.json', 'LICENSE', 'LICENSE-APACHE-2.0.txt', 'SOURCE.txt', 'SHA256SUMS.txt')) {
+              foreach ($required in @('dnssd.dll', 'mDNSResponder.exe', 'input-leap.exe', 'input-leapc.exe', 'input-leaps.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'GPL-2.0.txt', 'DEPLOYED-PAYLOAD.json', 'SOURCE.txt', 'LICENSE', 'LICENSE-APACHE-2.0.txt', 'SHA256SUMS.txt')) {
                 if ($componentNames -notcontains $required) { throw "Windows installer SBOM does not inventory required runtime/provenance/legal file: $required" }
               }
               $qtPayloadPath = Join-Path $PWD 'build\windows-installer-sbom-input\licenses\Qt\DEPLOYED-PAYLOAD.json'
@@ -766,7 +766,7 @@ jobs:
               if (-not (Test-Path (Join-Path $installDir $file))) { throw "Required installed file missing: $file" }
             }
             if ($requireCurrentLegalPayload) {
-              foreach ($file in @('LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'licenses\Qt\GPL-3.0.txt', 'licenses\Qt\LGPL-3.0.txt', 'licenses\Qt\DEPLOYED-PAYLOAD.json')) {
+              foreach ($file in @('LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'licenses\Qt\GPL-2.0.txt', 'licenses\Qt\SOURCE.txt', 'licenses\Qt\DEPLOYED-PAYLOAD.json')) {
                 if (-not (Test-Path (Join-Path $installDir $file))) { throw "Required installed legal file missing: $file" }
               }
               $qtPayload = @(Get-Content -Raw -LiteralPath (Join-Path $installDir 'licenses\Qt\DEPLOYED-PAYLOAD.json') | ConvertFrom-Json)
@@ -790,11 +790,18 @@ jobs:
             }
             if ($requireCurrentLegalPayload) {
               $notices = Get-Content -Raw -LiteralPath (Join-Path $installDir 'THIRD_PARTY_NOTICES.md')
-              if ($notices -notmatch 'licenses/Qt/GPL-3\.0\.txt' -or $notices -notmatch 'licenses/Qt/LGPL-3\.0\.txt') {
-                throw 'Installed third-party notices do not identify both Qt license texts'
+              $qtLicense = Get-Content -Raw -LiteralPath (Join-Path $installDir 'licenses\Qt\GPL-2.0.txt')
+              if ($qtLicense -notmatch '^GNU GENERAL PUBLIC LICENSE\s+Version 2, June 1991') {
+                throw 'Installed Qt license file is not the complete GPL-2.0 text'
               }
-              if ($notices -notmatch 'Do not distribute this candidate until the source/offer and technical relinking obligations are demonstrated') {
-                throw 'Installed third-party notices do not preserve the unresolved Qt distribution blocker'
+              if ($qtLicense -match 'OpenSSL is allowed') {
+                throw 'InputLeap OpenSSL exception was incorrectly included in Qt license text'
+              }
+              if ($notices -notmatch 'licenses/Qt/GPL-2\.0\.txt' -or $notices -notmatch 'GPL-2\.0-only') {
+                throw 'Installed third-party notices do not identify the selected Qt GPL-2.0-only terms'
+              }
+              if ($notices -notmatch 'distribution gate remains closed until') {
+                throw 'Installed third-party notices do not preserve the unresolved Qt distribution gate'
               }
               if ($requireMdns -and $notices -notmatch 'f783506af3836b39b83fc14115bc2728a49db4b2') {
                 throw 'Installed third-party notices do not identify the bundled DNS-SD source revision'
@@ -902,8 +909,8 @@ jobs:
 
   windows-clean-installer-smoke:
     name: Windows clean-runner installer smoke
-    if: ${{ (inputs.build_release || github.event_name == 'release') && needs.win-build.result == 'success' }}
-    needs: win-build
+    if: ${{ (inputs.build_release || github.event_name == 'release') && needs.win-build.result == 'success' && needs.windows-qt-source.result == 'success' }}
+    needs: [win-build, windows-qt-source]
     runs-on: windows-2022
 
     steps:
@@ -917,6 +924,35 @@ jobs:
       - name: Install and uninstall package on a fresh Windows runner
         shell: pwsh
         run: .\scripts\windows\smoke_installer_clean.ps1 -ArtifactDirectory "$env:RUNNER_TEMP\inputleap-installer"
+
+  windows-qt-source:
+    name: Verify and publish Qt 6.8.3 corresponding source artifact
+    if: ${{ inputs.build_release || github.event_name == 'release' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download and verify official Qt source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive='qt-everywhere-src-6.8.3.tar.xz'
+          expected='cdd3a69967208276bb01af7ace7dba0ba53e679f886a4cbe624225c60fb73f2c'
+          source_dir="$RUNNER_TEMP/qt-source-6.8.3"
+          mkdir -p "$source_dir"
+          curl --fail --location --retry 5 --retry-all-errors \
+            "https://download.qt.io/official_releases/qt/6.8/6.8.3/single/$archive" \
+            --output "$source_dir/$archive"
+          printf '%s  %s\n' "$expected" "$source_dir/$archive" | sha256sum --check --status
+          printf '%s  %s\n' "$expected" "$archive" > "$source_dir/Qt-SOURCE-SHA256SUMS.txt"
+          printf 'Qt 6.8.3 upstream source archive\nURL: https://download.qt.io/official_releases/qt/6.8/6.8.3/single/%s\nSHA-256: %s\nLicense selection in InputLeap package: GPL-2.0-only, subject to deployed component audit.\n' \
+            "$archive" "$expected" > "$source_dir/Qt-SOURCE.txt"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: qt-source-6.8.3
+          path: ${{ runner.temp }}/qt-source-6.8.3
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 90
 
   freebsd-build:
     if: ${{ inputs.include_legacy_platforms }}

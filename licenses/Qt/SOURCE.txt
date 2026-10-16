@@ -1,0 +1,16 @@
+Qt 6.8.3 corresponding source information
+==========================================
+
+The Windows package uses Qt 6.8.3. The corresponding upstream source release is:
+
+  https://download.qt.io/official_releases/qt/6.8/6.8.3/single/qt-everywhere-src-6.8.3.tar.xz
+
+Expected SHA-256:
+
+  cdd3a69967208276bb01af7ace7dba0ba53e679f886a4cbe624225c60fb73f2c
+
+The same archive is produced as the separate `qt-source-6.8.3` workflow artifact
+for each Windows release-build candidate and is verified against that hash before
+upload. This source archive is upstream Qt source; it is not a claim that all
+third-party code bundled by Qt is under GPL-2.0-only. See THIRD_PARTY_NOTICES.md
+and the installed DEPLOYED-PAYLOAD.json for the package-specific inventory.
