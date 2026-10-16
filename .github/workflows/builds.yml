@@ -522,11 +522,32 @@ jobs:
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp .\build\installer-inno\input-leap.iss
 
+      - name: Prepare complete Windows installer SBOM input
+        if: env.B_BUILD_TYPE == 'Release'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installDir = Resolve-Path .\build\input-leap-install
+          $sbomInput = Join-Path $PWD 'build\windows-installer-sbom-input'
+          New-Item -ItemType Directory -Path $sbomInput -Force | Out-Null
+          Copy-Item -Path (Join-Path $installDir '*') -Destination $sbomInput -Recurse -Force
+          $legalFiles = @(
+            @{ Source = '.\input-leap\LICENSE'; Destination = 'LICENSE.txt' },
+            @{ Source = '.\input-leap\res\License.rtf'; Destination = 'License.rtf' },
+            @{ Source = '.\input-leap\THIRD_PARTY_NOTICES.md'; Destination = 'THIRD_PARTY_NOTICES.md' }
+          )
+          foreach ($file in $legalFiles) {
+            if (-not (Test-Path -LiteralPath $file.Source -PathType Leaf)) { throw "Installer legal file is missing: $($file.Source)" }
+            Copy-Item -LiteralPath $file.Source -Destination (Join-Path $sbomInput $file.Destination) -Force
+          }
+
       - name: Generate Windows package SBOM
         if: env.B_BUILD_TYPE == 'Release'
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        env:
+          SYFT_FILE_METADATA_SELECTION: all
         with:
-          path: .\build\input-leap-install
+          path: .\build\windows-installer-sbom-input
           format: cyclonedx-json
           output-file: .\build\installer-inno\bin\input-leap-windows-x64.cdx.json
           artifact-name: input-leap-windows-x64-sbom-${{ matrix.name }}
@@ -597,14 +618,14 @@ jobs:
             $purls = @($components | Where-Object { $_.purl }).Count
             if ($name -eq 'input-leap-windows-x64.cdx.json') {
               $componentNames = @($components | ForEach-Object { ($_.name -replace '\\', '/').Split('/')[-1] })
-              foreach ($required in @('dnssd.dll', 'mDNSResponder.exe', 'input-leap.exe', 'input-leapc.exe', 'input-leaps.exe')) {
-                if ($componentNames -notcontains $required) { throw "Windows package SBOM does not inventory required runtime component: $required" }
+              foreach ($required in @('dnssd.dll', 'mDNSResponder.exe', 'input-leap.exe', 'input-leapc.exe', 'input-leaps.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'LICENSE', 'SOURCE.txt', 'SHA256SUMS.txt')) {
+                if ($componentNames -notcontains $required) { throw "Windows installer SBOM does not inventory required runtime/provenance/legal file: $required" }
               }
               $fileComponents = @($components | Where-Object { $_.type -eq 'file' })
               $missingHashes = @($fileComponents | Where-Object { @($_.hashes | Where-Object { $_.alg -eq 'SHA-256' -and $_.content }).Count -eq 0 })
               if ($missingHashes.Count -gt 0) { throw "Windows package SBOM has $($missingHashes.Count) file components without SHA-256 hashes" }
               if (-not $bom.metadata.component.name) { throw 'Windows package SBOM has no root package component' }
-              Write-Host "$name components=$($components.Count) file_components=$($fileComponents.Count) sha256=$($fileComponents.Count) required_runtime_components=5"
+              Write-Host "$name components=$($components.Count) file_components=$($fileComponents.Count) sha256=$($fileComponents.Count) required_payload_files=11"
             } else {
               if ($purls -lt 10) { throw "SBOM has insufficient package identifiers: $name ($purls)" }
               $edges = @($bom.dependencies | Where-Object { @($_.dependsOn).Count -gt 0 }).Count

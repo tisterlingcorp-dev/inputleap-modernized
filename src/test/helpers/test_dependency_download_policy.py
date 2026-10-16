@@ -99,9 +99,19 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertIn("input-leap-windows-x64.cdx.json", validation)
         self.assertIn("$bom.metadata.component.name", validation)
         self.assertIn("$_.hashes | Where-Object { $_.alg -eq 'SHA-256' -and $_.content }", validation)
-        for component in ("dnssd.dll", "mDNSResponder.exe", "input-leap.exe", "input-leapc.exe", "input-leaps.exe"):
+        for component in (
+            "dnssd.dll", "mDNSResponder.exe", "input-leap.exe", "input-leapc.exe", "input-leaps.exe",
+            "LICENSE.txt", "License.rtf", "THIRD_PARTY_NOTICES.md", "LICENSE", "SOURCE.txt", "SHA256SUMS.txt",
+        ):
             with self.subTest(component=component):
                 self.assertIn(component, validation)
+
+        workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
+        windows_sbom = workflow.split("- name: Generate Windows package SBOM", 1)[1].split(
+            "- name:", 1
+        )[0]
+        self.assertIn("SYFT_FILE_METADATA_SELECTION: all", windows_sbom)
+        self.assertIn("build\\windows-installer-sbom-input", windows_sbom)
 
 
 if __name__ == "__main__":
