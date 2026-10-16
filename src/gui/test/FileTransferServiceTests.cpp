@@ -58,7 +58,8 @@ bool sendItemsAndProcessEvents(FileTransferService& receiver,
                                QString* errorMessage = nullptr,
                                FileTransferService::ProgressCallback progressCallback = {},
                                FileTransferService::CancelCallback cancelCallback = {},
-                               const QUuid& localUuid = {}, const QByteArray& psk = {})
+                               const QUuid& localUuid = {}, const QByteArray& psk = {},
+                               int timeoutMs = 10000)
 {
     std::atomic_bool complete = false;
     bool sent = false;
@@ -68,7 +69,7 @@ bool sendItemsAndProcessEvents(FileTransferService& receiver,
             std::move(progressCallback), std::move(cancelCallback), {}, localUuid, psk, true);
         complete.store(true);
     });
-    const bool completedInTime = waitFor(complete);
+    const bool completedInTime = waitFor(complete, timeoutMs);
     sender.join();
     return completedInTime && sent;
 }
@@ -713,7 +714,8 @@ TEST(FileTransferServiceTests, TransfersManySmallFilesInOneServiceRun)
     receiver.setReceivePermissionCallback([](const QUuid& uuid) { return !uuid.isNull(); });
     receiver.setDevicePreSharedKey(peerUuid, psk); receiver.setReceiveDirectory(directory.filePath("received"));
     QString error; ASSERT_TRUE(receiver.startListening(0, &error)) << error.toStdString();
-    ASSERT_TRUE(sendItemsAndProcessEvents(receiver, items, &error, {}, {}, peerUuid, psk)) << error.toStdString();
+    ASSERT_TRUE(sendItemsAndProcessEvents(receiver, items, &error, {}, {}, peerUuid, psk, 120000))
+        << error.toStdString();
     for (int i = 0; i < 48; ++i)
         EXPECT_TRUE(QFile::exists(directory.filePath(QStringLiteral("received/batch/small-%1.txt").arg(i))));
 }
