@@ -7,7 +7,7 @@
   "snapshotKind": "dirty-working-tree-content-manifest",
   "branchAtFreeze": "fix/tls-rejected-socket-cleanup",
   "pathCount": 79,
-  "contentDigest": "3d04f83b5fd20e46ad6a7598c2abb7a75abea458ef6822a6da0ced22004d9dc0",
+  "contentDigest": "eb8f64ad053181002e46a2e6ba130304364f27538d1996b32167db73363a8deb",
   "files": [
     {
       "path": ".gitignore",
@@ -59,9 +59,9 @@
     },
     {
       "path": "src/gui/src/FileTransferService.cpp",
-      "size": 102658,
+      "size": 103456,
       "hashMode": "canonical-lf",
-      "sha256": "1dc772db0bda6b7753316ed4c2749bcc6b105eb88be401bc65c04a5e51cbaede"
+      "sha256": "0cfa02b06ec1e58ae46089b9ba621df6d4b1c1b3706e5d56b06962bf04287742"
     },
     {
       "path": "src/gui/src/FileTransferService.h",
