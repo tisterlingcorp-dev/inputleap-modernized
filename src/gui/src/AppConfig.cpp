@@ -563,7 +563,12 @@ void AppConfig::setCryptoEnabled(bool e)
 bool AppConfig::getCryptoEnabled() const { return m_CryptoEnabled; }
 void AppConfig::setRequireClientCertificate(bool e)
 {
+#if defined(Q_OS_WIN)
+    Q_UNUSED(e);
+    m_RequireClientCertificate = true;
+#else
     m_RequireClientCertificate = e;
+#endif
 }
 bool AppConfig::getRequireClientCertificate() const { return m_RequireClientCertificate; }
 void AppConfig::setAutoHide(bool b) { m_AutoHide = b; }

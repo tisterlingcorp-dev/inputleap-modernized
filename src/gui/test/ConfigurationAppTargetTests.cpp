@@ -764,6 +764,10 @@ TEST(ConfigurationAppTargetTests, WindowsAppConfigMigratesDisabledCryptoPreferen
     EXPECT_FALSE(config.settingsLoadFailed());
     EXPECT_TRUE(config.getCryptoEnabled());
     EXPECT_TRUE(config.getRequireClientCertificate());
+    config.setCryptoEnabled(false);
+    config.setRequireClientCertificate(false);
+    EXPECT_TRUE(config.getCryptoEnabled());
+    EXPECT_TRUE(config.getRequireClientCertificate());
 #endif
 }
 
