@@ -18,6 +18,8 @@
 #include "net/SecureUtils.h"
 
 #include <gtest/gtest.h>
+#include <memory>
+#include <openssl/x509.h>
 #include "test/global/TestUtils.h"
 
 namespace inputleap {
@@ -68,6 +70,33 @@ TEST(SecureUtilsTest, CreateFingerprintRandomArt)
               "|     . . O .     |\n"
               "|        . +      |\n"
               "+-----------------+");
+}
+
+TEST(SecureUtilsTest, CertificateMustBeWithinItsValidityPeriod)
+{
+    X509* certificate = X509_new();
+    ASSERT_NE(certificate, nullptr);
+    const auto certificate_free = std::unique_ptr<X509, decltype(&X509_free)>(certificate, X509_free);
+
+    ASSERT_TRUE(X509_gmtime_adj(X509_get_notBefore(certificate), -60));
+    ASSERT_TRUE(X509_gmtime_adj(X509_get_notAfter(certificate), 60));
+    EXPECT_TRUE(is_ssl_certificate_current(certificate));
+
+    ASSERT_TRUE(X509_gmtime_adj(X509_get_notBefore(certificate), 3600));
+    EXPECT_FALSE(is_ssl_certificate_current(certificate));
+
+    ASSERT_TRUE(X509_gmtime_adj(X509_get_notBefore(certificate), -7200));
+    ASSERT_TRUE(X509_gmtime_adj(X509_get_notAfter(certificate), -3600));
+    EXPECT_FALSE(is_ssl_certificate_current(certificate));
+}
+
+TEST(SecureUtilsTest, CertificateWithMissingValidityDatesIsRejected)
+{
+    X509* certificate = X509_new();
+    ASSERT_NE(certificate, nullptr);
+    const auto certificate_free = std::unique_ptr<X509, decltype(&X509_free)>(certificate, X509_free);
+
+    EXPECT_FALSE(is_ssl_certificate_current(certificate));
 }
 
 } // namespace inputleap

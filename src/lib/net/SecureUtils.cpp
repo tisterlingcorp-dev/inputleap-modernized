@@ -135,6 +135,19 @@ FingerprintData get_ssl_cert_fingerprint(X509* cert, FingerprintType type)
     return {fingerprint_type_to_string(type), digest_vec};
 }
 
+bool is_ssl_certificate_current(X509* cert)
+{
+    if (cert == nullptr) {
+        return false;
+    }
+
+    const int not_before = X509_cmp_current_time(X509_get0_notBefore(cert));
+    const int not_after = X509_cmp_current_time(X509_get0_notAfter(cert));
+
+    // X509_cmp_current_time returns zero when the ASN.1 time cannot be parsed.
+    return not_before < 0 && not_after > 0;
+}
+
 FingerprintData get_pem_file_cert_fingerprint(const std::string& path, FingerprintType type)
 {
     auto fp = fopen_utf8_path(path, "r");

@@ -675,6 +675,12 @@ bool SecureSocket::verify_peer_certificate(const inputleap::fs::path& fingerprin
         return false;
     }
     auto cert_free = inputleap::finally([cert]() { X509_free(cert); });
+
+    if (!inputleap::is_ssl_certificate_current(cert)) {
+        showError("peer certificate is not currently valid");
+        return false;
+    }
+
     char* line = X509_NAME_oneline(X509_get_subject_name(cert), nullptr, 0);
     LOG_INFO("peer ssl certificate info: %s", line);
     OPENSSL_free(line);

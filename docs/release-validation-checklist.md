@@ -24,6 +24,7 @@ O artefato Inno Setup deve estar em `build\installer-inno\bin\InputLeapSetup-*.e
 - [ ] Confirmar que o gate Build tests no SHA candidato concluiu com sucesso no job Windows Qt6.
 - [ ] Executar CTest Release com o PATH do Qt configurado.
 - [ ] Executar os testes funcionais de transferência, IPC, descoberta e atualização.
+- [ ] Validar o canal TLS legado 24800: certificado ausente, ASN.1/data inválida, ainda não válido, expirado, fingerprint não confiável e revogado devem falhar antes de qualquer evento de input; certificado vigente e explicitamente confiável deve conectar. Confirmar log acionável e que rotação de identidade exige novo pareamento explícito (nunca regenerar silenciosamente e invalidar peers existentes).
 - [ ] Em VM Windows 10 e Windows 11 limpas, validar instalação, reinstalação/upgrade, reparo, desinstalação e rollback da versão anterior; confirmar serviço, firewall e preservação de `%ProgramData%\InputLeap` e `%LOCALAPPDATA%\InputLeap`. Verificar autoconfig/discovery com Bonjour instalado e a rota de configuração manual sem Bonjour; não incluir runtime/instalador Bonjour até autorização e proveniência aprovadas.
 - [ ] Registrar logs fora de `out/` quando o script de limpeza puder remover os artefatos.
 - [ ] Reexecutar os gates depois de qualquer alteração no código-fonte congelado.

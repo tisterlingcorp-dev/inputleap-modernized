@@ -31,6 +31,8 @@ std::string format_ssl_fingerprint_columns(const std::vector<uint8_t>& fingerpri
 
 FingerprintData get_ssl_cert_fingerprint(X509* cert, FingerprintType type);
 
+bool is_ssl_certificate_current(X509* cert);
+
 FingerprintData get_pem_file_cert_fingerprint(const std::string& path, FingerprintType type);
 
 void generate_pem_self_signed_cert(const std::string& path);
