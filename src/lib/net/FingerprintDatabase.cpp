@@ -19,7 +19,19 @@
 #include "FingerprintDatabase.h"
 #include "io/filesystem.h"
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <fstream>
+#include <system_error>
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace inputleap {
 
@@ -32,14 +44,51 @@ void FingerprintDatabase::read(const fs::path& path)
 
 bool FingerprintDatabase::write(const fs::path& path)
 {
+    static std::atomic<unsigned long long> tempSequence{0};
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+#if defined(_WIN32)
+    const auto processId = GetCurrentProcessId();
+#else
+    const auto processId = static_cast<unsigned long long>(getpid());
+#endif
+    fs::path temporaryPath = path;
+    temporaryPath += ".tmp-" + std::to_string(processId) + "-" +
+        std::to_string(stamp) + "-" +
+        std::to_string(tempSequence.fetch_add(1, std::memory_order_relaxed));
+
     std::ofstream file;
-    open_utf8_path(file, path, std::ios_base::out);
+    open_utf8_path(file, temporaryPath, std::ios_base::out | std::ios_base::trunc);
     if (!file.is_open()) {
         return false;
     }
     write_stream(file);
     file.flush();
-    return file.good();
+    const bool writeSucceeded = file.good();
+    file.close();
+    if (!writeSucceeded || file.fail()) {
+        std::error_code ignored;
+        fs::remove(temporaryPath, ignored);
+        return false;
+    }
+
+#if defined(_WIN32)
+    if (!MoveFileExW(temporaryPath.c_str(), path.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        std::error_code ignored;
+        fs::remove(temporaryPath, ignored);
+        return false;
+    }
+#else
+    std::error_code renameError;
+    fs::rename(temporaryPath, path, renameError);
+    if (renameError) {
+        std::error_code ignored;
+        fs::remove(temporaryPath, ignored);
+        return false;
+    }
+#endif
+
+    return true;
 }
 
 void FingerprintDatabase::read_stream(std::istream& stream)
