@@ -208,11 +208,13 @@ QByteArray sendAuthenticatedV4Blocking(FileTransferService& receiver,
                                        const QByteArray& payload)
 {
     QSslSocket socket;
+    const QByteArray tlsPsk = FileTransferResume::deriveContextKey(psk, "tls-psk-v1");
+    if (tlsPsk.size() != 32) return {};
     QObject::connect(&socket, &QSslSocket::preSharedKeyAuthenticationRequired, &socket,
-                     [tlsPeer, psk](QSslPreSharedKeyAuthenticator* auth) {
+                     [tlsPeer, tlsPsk](QSslPreSharedKeyAuthenticator* auth) {
         auth->setIdentity(QByteArray("inputleap-file-transfer:") +
                           tlsPeer.toString(QUuid::WithoutBraces).toLower().toLatin1());
-        auth->setPreSharedKey(psk);
+        auth->setPreSharedKey(tlsPsk);
     });
     QSslConfiguration config = socket.sslConfiguration();
     config.setProtocol(QSsl::TlsV1_2);
