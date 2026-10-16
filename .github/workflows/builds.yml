@@ -816,8 +816,14 @@ jobs:
             Install-Package $installer.FullName 'Current upgrade'
             $currentInstalledHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $installDir 'input-leapd.exe')).Hash
             if ($currentInstalledHash -eq $previousInstalledHash) { throw 'Upgrade did not replace the previous runtime binary' }
+
+            # Exercise repair behavior instead of merely invoking the installer twice.
+            $repairTarget = Join-Path $installDir 'input-leapc.exe'
+            Remove-Item -LiteralPath $repairTarget -Force
+            if (Test-Path -LiteralPath $repairTarget) { throw 'Could not remove the repair test target' }
             Install-Package $installer.FullName 'Current repair/reinstall'
             Assert-InstalledPackage $currentInstalledHash
+            if (-not (Test-Path -LiteralPath $repairTarget -PathType Leaf)) { throw 'Repair did not restore the missing client executable' }
             Uninstall-Package
 
             Install-Package $previousPath 'Rollback' $false
