@@ -63,9 +63,35 @@ foreach ($entry in $artifacts.GetEnumerator()) {
     Copy-Item -LiteralPath $from -Destination $to -Force
 }
 
+# mDNSResponder's repository LICENSE identifies Apache-2.0 but is only a
+# license summary. Include the complete canonical license required for
+# redistribution of the Windows service and other Apache-licensed sources.
+$apacheLicenseUrl = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+$expectedApacheLicenseSha256 = 'cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30'
+$httpClient = [System.Net.Http.HttpClient]::new()
+try {
+    $apacheLicenseBytes = $httpClient.GetByteArrayAsync($apacheLicenseUrl).GetAwaiter().GetResult()
+} finally {
+    $httpClient.Dispose()
+}
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
+try {
+    $actualApacheLicenseSha256 = [BitConverter]::ToString(
+        $sha256.ComputeHash($apacheLicenseBytes)).Replace('-', '').ToLowerInvariant()
+} finally {
+    $sha256.Dispose()
+}
+if ($actualApacheLicenseSha256 -ne $expectedApacheLicenseSha256) {
+    throw "Apache-2.0 license text hash mismatch: expected $expectedApacheLicenseSha256, got $actualApacheLicenseSha256"
+}
+$apacheLicensePath = Join-Path $output 'Licenses\mDNSResponder\LICENSE-APACHE-2.0.txt'
+[System.IO.File]::WriteAllBytes($apacheLicensePath, $apacheLicenseBytes)
+
 $sourceInfo = @(
     'Project: https://github.com/apple-oss-distributions/mDNSResponder',
     "Commit: $expectedRevision",
+    "Apache-2.0 license URL: $apacheLicenseUrl",
+    "Apache-2.0 license SHA-256: $expectedApacheLicenseSha256",
     "Windows SDK: $WindowsSdkVersion",
     'Build configuration: Release x64',
     'dnssd.lib is the upstream DLLStub import library, renamed for the existing CMake find_library contract.'

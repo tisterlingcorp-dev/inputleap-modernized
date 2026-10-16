@@ -6,6 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 MDNS_REVISION = "f783506af3836b39b83fc14115bc2728a49db4b2"
+APACHE_LICENSE_SHA256 = "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
 
 
 class DependencyDownloadPolicyTests(unittest.TestCase):
@@ -50,12 +51,16 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
             "Bin\\x64\\dnssd.dll",
             "Bin\\x64\\mDNSResponder.exe",
             "Licenses\\mDNSResponder\\LICENSE",
+            "LICENSE-APACHE-2.0.txt",
         ):
             with self.subTest(artifact=artifact):
                 self.assertIn(artifact, build_script)
         self.assertIn("Bin/x64/dnssd.dll", cmake)
         self.assertIn("Bin/x64/mDNSResponder.exe", cmake)
         self.assertIn("Licenses/mDNSResponder/LICENSE", cmake)
+        self.assertIn("Licenses/mDNSResponder/LICENSE-APACHE-2.0.txt", cmake)
+        self.assertIn(f"$expectedApacheLicenseSha256 = '{APACHE_LICENSE_SHA256}'", build_script)
+        self.assertIn("https://www.apache.org/licenses/LICENSE-2.0.txt", build_script)
         self.assertIn('DestName: "THIRD_PARTY_NOTICES.md"', installer)
         self.assertIn(
             "if ($requireMdns -and $notices -notmatch",
@@ -101,7 +106,7 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertIn("$_.hashes | Where-Object { $_.alg -eq 'SHA-256' -and $_.content }", validation)
         for component in (
             "dnssd.dll", "mDNSResponder.exe", "input-leap.exe", "input-leapc.exe", "input-leaps.exe",
-            "LICENSE.txt", "License.rtf", "THIRD_PARTY_NOTICES.md", "LICENSE", "SOURCE.txt", "SHA256SUMS.txt",
+            "LICENSE.txt", "License.rtf", "THIRD_PARTY_NOTICES.md", "LICENSE", "LICENSE-APACHE-2.0.txt", "SOURCE.txt", "SHA256SUMS.txt",
         ):
             with self.subTest(component=component):
                 self.assertIn(component, validation)

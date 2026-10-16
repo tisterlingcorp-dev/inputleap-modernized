@@ -371,6 +371,7 @@ if (BUILD_MSWINDOWS)
         "$ENV{BONJOUR_SDK_HOME}/Bin/x64/dnssd.dll"
         "$ENV{BONJOUR_SDK_HOME}/Bin/x64/mDNSResponder.exe"
         "$ENV{BONJOUR_SDK_HOME}/Licenses/mDNSResponder/LICENSE"
+        "$ENV{BONJOUR_SDK_HOME}/Licenses/mDNSResponder/LICENSE-APACHE-2.0.txt"
         "$ENV{BONJOUR_SDK_HOME}/SOURCE.txt"
         "$ENV{BONJOUR_SDK_HOME}/SHA256SUMS.txt")
         if (NOT EXISTS "${mdns_file}")
@@ -383,6 +384,7 @@ if (BUILD_MSWINDOWS)
         DESTINATION .)
     install(FILES
         "$ENV{BONJOUR_SDK_HOME}/Licenses/mDNSResponder/LICENSE"
+        "$ENV{BONJOUR_SDK_HOME}/Licenses/mDNSResponder/LICENSE-APACHE-2.0.txt"
         DESTINATION licenses/mDNSResponder)
     install(FILES
         "$ENV{BONJOUR_SDK_HOME}/SOURCE.txt"
