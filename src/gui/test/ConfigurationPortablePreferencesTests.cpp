@@ -141,6 +141,7 @@ TEST(ConfigurationPortablePreferencesTests, RejectsOutOfRangeAndInconsistentValu
 
     QJsonObject disabledEncryption = valid;
     disabledEncryption.insert(QStringLiteral("cryptoEnabled"), false);
+    disabledEncryption.insert(QStringLiteral("requireClientCertificate"), false);
     const auto decodedDisabledEncryption = Codec::decode(disabledEncryption);
     ASSERT_EQ(decodedDisabledEncryption.error, Error::None);
     ASSERT_TRUE(decodedDisabledEncryption.preferences.has_value());
