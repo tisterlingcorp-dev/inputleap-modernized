@@ -671,6 +671,8 @@ TEST(SettingsDialogEnvironmentProfileTests,
                     auto* yes = message->button(QMessageBox::Yes);
                     ASSERT_NE(yes, nullptr);
                     yes->click();
+                    if (message->windowTitle() == QStringLiteral("Arquivo sem autenticação"))
+                        controller.invalidate();
                     return;
                 }
             }
