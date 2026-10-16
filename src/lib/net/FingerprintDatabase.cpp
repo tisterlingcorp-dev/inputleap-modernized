@@ -30,11 +30,16 @@ void FingerprintDatabase::read(const fs::path& path)
     read_stream(file);
 }
 
-void FingerprintDatabase::write(const fs::path& path)
+bool FingerprintDatabase::write(const fs::path& path)
 {
     std::ofstream file;
     open_utf8_path(file, path, std::ios_base::out);
+    if (!file.is_open()) {
+        return false;
+    }
     write_stream(file);
+    file.flush();
+    return file.good();
 }
 
 void FingerprintDatabase::read_stream(std::istream& stream)

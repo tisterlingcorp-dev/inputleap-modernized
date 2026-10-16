@@ -2419,6 +2419,64 @@ void MainWindow::createMenuBar()
     m_pActionCheckUpdates->setObjectName(QStringLiteral("checkForUpdatesAction"));
     connect(m_pActionCheckUpdates, &QAction::triggered,
             this, &MainWindow::checkForUpdates);
+    auto* revokeTrustedPeers = new QAction(tr("Revoke trusted peer certificates..."), this);
+    revokeTrustedPeers->setObjectName(QStringLiteral("revokeTrustedPeerCertificatesAction"));
+    revokeTrustedPeers->setStatusTip(tr("Remove all trusted peer fingerprints and require human confirmation again."));
+    connect(revokeTrustedPeers, &QAction::triggered, this, [this] {
+        if (!m_RuntimeConsumersEnabled) return;
+        const auto answer = QMessageBox::warning(this,
+            tr("Revoke trusted peer certificates"),
+            tr("This removes all trusted server and client fingerprints. InputLeap will be stopped and each peer must be confirmed again. Continue?"),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (answer != QMessageBox::Yes) return;
+
+        const auto clearTrust = [this] {
+            inputleap::FingerprintDatabase empty;
+            const auto serversPath = inputleap::DataDirectories::trusted_servers_ssl_fingerprints_path();
+            const auto clientsPath = inputleap::DataDirectories::trusted_clients_ssl_fingerprints_path();
+            const bool serversWritten = empty.write(serversPath);
+            const bool clientsWritten = empty.write(clientsPath);
+            if (!serversWritten || !clientsWritten) {
+                QMessageBox::critical(this, tr("Trust revocation incomplete"),
+                    tr("At least one trusted fingerprint file could not be cleared. InputLeap remains stopped; check folder permissions before starting it again."));
+                return;
+            }
+            QMessageBox::information(this, tr("Trusted peers revoked"),
+                tr("All trusted peer fingerprints were removed. InputLeap remains stopped; confirm each peer again when reconnecting."));
+        };
+
+        stop_cmd_app();
+        if (appConfig().processMode() == Desktop && !m_DesktopStopConfirmed) {
+            QMessageBox::warning(this, tr("Stop not confirmed"),
+                tr("The InputLeap process is still running or its stop could not be confirmed. No trust database was changed."));
+            return;
+        }
+        if (appConfig().processMode() == Service) {
+            if (!m_SystemIpcEnabled || m_ServiceStopUnconfirmed) {
+                QMessageBox::warning(this, tr("Stop not confirmed"),
+                    tr("The runtime stop could not be confirmed. No trust database was changed."));
+                return;
+            }
+            if (m_ServiceStopPending) {
+                auto* confirmation = new QTimer(this);
+                confirmation->setInterval(100);
+                connect(confirmation, &QTimer::timeout, this, [this, confirmation, clearTrust] {
+                    if (m_ServiceStopPending) return;
+                    confirmation->stop();
+                    confirmation->deleteLater();
+                    if (m_ServiceStopUnconfirmed) {
+                        QMessageBox::warning(this, tr("Stop not confirmed"),
+                            tr("The runtime stop could not be confirmed. No trust database was changed."));
+                        return;
+                    }
+                    clearTrust();
+                });
+                confirmation->start();
+                return;
+            }
+        }
+        clearTrust();
+    });
     retranslateMenuBar();
 
     ui_->m_pActionShowLog->setText(tr("Mostrar log"));
@@ -2464,6 +2522,7 @@ void MainWindow::createMenuBar()
     main_menu_->addAction(ui_->m_pActionShowLog);
     main_menu_->addAction(m_pActionClipboardHistory);
     main_menu_->addAction(m_pActionDiagnostics);
+    main_menu_->addAction(revokeTrustedPeers);
     main_menu_->addSeparator();
     main_menu_->addAction(ui_->m_pActionSettings);
     main_menu_->addAction(ui_->m_pActionMinimize);
@@ -2777,7 +2836,12 @@ void MainWindow::checkFingerprint(const QString& line)
             if (m_FingerprintTrustOverride) m_FingerprintTrustOverride(true);
             else {
                 db.add_trusted(fingerprint_sha256);
-                db.write(db_path);
+                if (!db.write(db_path)) {
+                    QMessageBox::critical(this, tr("Trust was not saved"),
+                        tr("The trusted fingerprint could not be saved. Verify folder permissions and confirm the peer again."));
+                    messageBoxAlreadyShown = false;
+                    return;
+                }
             }
             if (is_client && m_ServiceStartGeneration == fingerprintStopGeneration) {
                 restartAfterFingerprintAcceptance();

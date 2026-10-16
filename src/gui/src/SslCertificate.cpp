@@ -27,6 +27,7 @@
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
+#include <stdexcept>
 
 SslCertificate::SslCertificate(QObject *parent) :
     QObject(parent)
@@ -56,12 +57,14 @@ void SslCertificate::generateCertificate()
         Q_EMIT info(tr("SSL certificate generated."));
     }
 
-    generate_fingerprint(cert_path);
+    if (!generate_fingerprint(cert_path)) {
+        return;
+    }
 
     Q_EMIT generateFinished();
 }
 
-void SslCertificate::generate_fingerprint(const inputleap::fs::path& cert_path)
+bool SslCertificate::generate_fingerprint(const inputleap::fs::path& cert_path)
 {
     try {
         auto local_path = inputleap::DataDirectories::local_ssl_fingerprints_path();
@@ -76,11 +79,15 @@ void SslCertificate::generate_fingerprint(const inputleap::fs::path& cert_path)
                                                               inputleap::FingerprintType::SHA1));
         db.add_trusted(inputleap::get_pem_file_cert_fingerprint(cert_path_utf8,
                                                               inputleap::FingerprintType::SHA256));
-        db.write(local_path);
+        if (!db.write(local_path)) {
+            throw std::runtime_error("failed to persist local SSL fingerprints");
+        }
 
         Q_EMIT info(tr("SSL fingerprint generated."));
+        return true;
     } catch (const std::exception& e) {
         Q_EMIT error(tr("Failed to find SSL fingerprint.") + e.what());
+        return false;
     }
 }
 

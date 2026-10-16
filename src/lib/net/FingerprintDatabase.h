@@ -28,7 +28,7 @@ namespace inputleap {
 class FingerprintDatabase {
 public:
     void read(const fs::path& path);
-    void write(const fs::path& path);
+    bool write(const fs::path& path);
 
     void read_stream(std::istream& stream);
     void write_stream(std::ostream& stream);
