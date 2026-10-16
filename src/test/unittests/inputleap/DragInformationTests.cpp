@@ -160,9 +160,12 @@ TEST(DragInformationTests, unpackFilePackage_doesNotOverwriteExistingRoot)
 
     std::string fileList;
     EXPECT_FALSE(DragInformation::unpackFilePackage(package, path_to_utf8(destination), fileList));
-    std::ifstream existing(destination / "source.txt", std::ios::binary);
-    const std::string content((std::istreambuf_iterator<char>(existing)),
-                              std::istreambuf_iterator<char>());
+    std::string content;
+    {
+        std::ifstream existing(destination / "source.txt", std::ios::binary);
+        content.assign(std::istreambuf_iterator<char>(existing),
+                       std::istreambuf_iterator<char>());
+    }
     EXPECT_EQ("keep existing", content);
     fs::remove_all(root);
 }
