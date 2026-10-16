@@ -275,8 +275,15 @@ void AppConfig::loadSettings()
     }
     m_ElevateMode = static_cast<ElevateMode>(elevateMode.toInt());
     m_AutoConfigPrompted = authority.value("autoConfigPrompted", false).toBool();
+#if defined(Q_OS_WIN)
+    // The Windows distribution always protects keyboard/mouse control with TLS;
+    // old preferences cannot disable encryption on the managed runtime.
+    m_CryptoEnabled = true;
+    m_RequireClientCertificate = true;
+#else
     m_CryptoEnabled = authority.value("cryptoEnabled", true).toBool();
     m_RequireClientCertificate = authority.value("requireClientCertificate", false).toBool();
+#endif
     m_AutoHide = authority.value("autoHide", false).toBool();
     m_AutoStart = authority.value("autoStart", false).toBool();
     m_MinimizeToTray = authority.value("minimizeToTray", false).toBool();
@@ -544,9 +551,20 @@ void AppConfig::setAutoConfigPrompted(bool prompted) { m_AutoConfigPrompted = pr
 QString AppConfig::server_name() const { return server_name_; }
 QString AppConfig::client_name() const { return client_name_; }
 ElevateMode AppConfig::elevateMode() { return m_ElevateMode; }
-void AppConfig::setCryptoEnabled(bool e) { m_CryptoEnabled = e; }
+void AppConfig::setCryptoEnabled(bool e)
+{
+#if defined(Q_OS_WIN)
+    Q_UNUSED(e);
+    m_CryptoEnabled = true;
+#else
+    m_CryptoEnabled = e;
+#endif
+}
 bool AppConfig::getCryptoEnabled() const { return m_CryptoEnabled; }
-void AppConfig::setRequireClientCertificate(bool e) { m_RequireClientCertificate = e; }
+void AppConfig::setRequireClientCertificate(bool e)
+{
+    m_RequireClientCertificate = e;
+}
 bool AppConfig::getRequireClientCertificate() const { return m_RequireClientCertificate; }
 void AppConfig::setAutoHide(bool b) { m_AutoHide = b; }
 bool AppConfig::getAutoHide() { return m_AutoHide; }

@@ -164,6 +164,14 @@ std::optional<ValidatedDaemonCommand> DaemonCommandPolicy::validateCommandLine(
     std::vector<std::string> arguments;
     std::string mutableCommand = command;
     ArgParser::splitCommandString(mutableCommand, arguments);
+    // Never let the service accept a GUI command that silently downgrades the
+    // Windows input-control channel, including commands restored from disk.
+    for (const auto& argument : arguments) {
+        if (argument == "--disable-crypto" ||
+            argument == "--disable-client-cert-checking") {
+            return std::nullopt;
+        }
+    }
     bool server = false;
     if (!validateExecutable(arguments, daemonExecutable, server)) {
         return std::nullopt;

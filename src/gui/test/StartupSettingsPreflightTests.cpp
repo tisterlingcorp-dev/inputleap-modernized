@@ -167,10 +167,36 @@ TEST(StartupSettingsPreflightTests, RejectsInconsistentTransportSecurityWithoutM
     }
     const QByteArray before = bytes(path);
     QSettings settings(path, QSettings::IniFormat);
+#if defined(Q_OS_WIN)
+    EXPECT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+#else
     EXPECT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
+#endif
     EXPECT_EQ(bytes(path), before);
 }
+
+#ifdef Q_OS_WIN
+TEST(StartupSettingsPreflightTests, DisabledLegacyCryptoIsAcceptedAndBytePreserving)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("legacy-disabled-crypto.ini"));
+    {
+        QSettings seed(path, QSettings::IniFormat);
+        seed.setValue(QStringLiteral("cryptoEnabled"), false);
+        seed.setValue(QStringLiteral("requireClientCertificate"), false);
+        seed.sync();
+    }
+    const QByteArray before = bytes(path);
+    QSettings settings(path, QSettings::IniFormat);
+
+    EXPECT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+    EXPECT_EQ(bytes(path), before);
+}
+#endif
 
 TEST(StartupSettingsPreflightTests, CanonicalLegacyBooleanStringsAreValidAndBytePreserving)
 {

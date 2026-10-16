@@ -267,6 +267,21 @@ TEST_F(DaemonCommandPolicyTests, AllowsPersistedServerCommandWithValidArguments)
               "\" --address 127.0.0.1");
 }
 
+TEST_F(DaemonCommandPolicyTests, RejectsCommandsThatDowngradeWindowsInputSecurity)
+{
+    for (const auto* insecureOption : {
+             "--disable-crypto", "--disable-client-cert-checking"}) {
+        const std::string command = "\"" +
+            (daemonDir_ / "input-leaps.exe").string() + "\" " + insecureOption;
+        EXPECT_FALSE(DaemonCommandPolicy::validateCommandLine(
+            command, daemonDir_ / "input-leapd.exe")) << insecureOption;
+        EXPECT_FALSE(DaemonCommandPolicy::validatePersistedCommand(
+            command, false,
+            DaemonCommandPolicy::persistedCommandMarker(command, false),
+            daemonDir_ / "input-leapd.exe")) << insecureOption;
+    }
+}
+
 TEST_F(DaemonCommandPolicyTests,
        ServerConfigDerivesExplicitProfileDirectoryForServiceRuntime)
 {

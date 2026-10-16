@@ -13,6 +13,12 @@ As duas máquinas precisam usar a mesma build/configuração do InputLeap Modern
 
 A porta `24801` não deve ser usada para comunicação entre computadores. Se ela aparecer como `127.0.0.1:24801`, isso é esperado para o IPC local e não prova que a rede esteja configurada.
 
+## Segurança do canal de controle
+
+Na distribuição Windows, a porta `24800` não pode operar em texto claro e o servidor exige certificado de cliente. A Tauri inicia o runtime com TLS; a GUI torna TLS e validação de certificado obrigatórios, e o daemon rejeita comandos que tentem usar `--disable-crypto` ou `--disable-client-cert-checking`, inclusive comandos restaurados após reinicialização. Dispositivos devem usar a mesma versão Windows modernizada: clientes antigos podem não completar o handshake mTLS. A validação de certificado/impressão digital não substitui o fluxo de pareamento com identidade por dispositivo, rotação e revogação — esses itens e negociação de capabilities ainda requerem aceite específico. Descoberta mDNS não concede confiança.
+
+Esse é o contrato de implementação; o aceite de release ainda exige testes de integração com certificados ausentes, inválidos, expirados e revogados, confirmando que nenhum evento de mouse/teclado é entregue e que não ocorre downgrade.
+
 ## Requisitos no computador destino
 
 1. A GUI/daemon da **mesma versão** deve estar instalado e em execução.
