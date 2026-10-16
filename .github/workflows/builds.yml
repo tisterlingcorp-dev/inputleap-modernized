@@ -656,6 +656,15 @@ jobs:
             foreach ($file in @('input-leap-tauri.exe', 'input-leap.exe', 'input-leaps.exe', 'input-leapc.exe', 'input-leapd.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md')) {
               if (-not (Test-Path (Join-Path $installDir $file))) { throw "Required installed file missing: $file" }
             }
+            foreach ($forbidden in @('dnssd.dll', 'Bonjour.msi', 'Bonjour64.msi')) {
+              if (Get-ChildItem -LiteralPath $installDir -Recurse -File -Filter $forbidden -ErrorAction SilentlyContinue) {
+                throw "Installer unexpectedly bundles an unapproved Bonjour runtime: $forbidden"
+              }
+            }
+            $notices = Get-Content -Raw -LiteralPath (Join-Path $installDir 'THIRD_PARTY_NOTICES.md')
+            if ($notices -notmatch 'Do not redistribute Apple''s Bonjour installer/runtime') {
+              throw 'Installed third-party notices do not preserve the Bonjour redistribution restriction'
+            }
             $service = Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue
             if ($null -eq $service) { throw 'InputLeap service missing after install' }
             if ($service.Status -ne 'Running') { throw "InputLeap service did not start after install: $($service.Status)" }
