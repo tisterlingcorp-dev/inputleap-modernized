@@ -333,6 +333,10 @@ endif()
 # Windows Installer
 #
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+        install(FILES
+                "${CMAKE_CURRENT_SOURCE_DIR}/licenses/Qt/GPL-3.0.txt"
+                "${CMAKE_CURRENT_SOURCE_DIR}/licenses/Qt/LGPL-3.0.txt"
+                DESTINATION licenses/Qt)
         option(INPUTLEAP_BUNDLE_TAURI "Build and install the Tauri controller with Windows packages" ON)
         if(INPUTLEAP_BUNDLE_TAURI)
                 find_program(INPUTLEAP_CARGO_EXECUTABLE cargo)

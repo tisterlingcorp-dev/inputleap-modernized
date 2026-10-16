@@ -12,7 +12,7 @@ InputLeap Modernized is an unofficial derivative of [input-leap/input-leap](http
 
 | Component | How it is used | License / obligation summary |
 | --- | --- | --- |
-| Qt 6 | C++ GUI/runtime | LGPL-3.0-only, GPL-3.0-only or commercial terms, depending on the selected Qt distribution. Binary redistributors using LGPL Qt must provide the required notices, license text, relinking/replacement ability and any other LGPL requirements. |
+| Qt 6 | C++ GUI/runtime | The Windows package dynamically bundles Qt libraries and plugins (the inspected CI artifact reports Qt 6.8.3.0). Qt modules can have LGPL-3.0-only, GPL-3.0-only or commercial terms depending on the selected distribution. The package includes the LGPL-3.0 and GPL-3.0 license texts under `licenses/Qt/`; this does not establish which terms apply to every shipped module or prove that all LGPL/GPL obligations are met. Binary redistributors must verify the exact Qt build/module licenses, notices, corresponding-source obligations, and that users can replace/relink compatible Qt libraries as required by the applicable license. |
 | OpenSSL | TLS/mTLS | Apache-2.0 for current OpenSSL releases. Linking is additionally permitted by the exception in the project `LICENSE`; retain OpenSSL notices when redistributing it. |
 | libpng | PNG clipboard/image support | libpng license. Preserve its copyright and license notice when redistributing the library. |
 | zlib | Compression dependency | Zlib license. Preserve its notice and do not misrepresent altered versions. |
@@ -32,6 +32,14 @@ cargo deny --manifest-path rust/apps/input-leap/src-tauri/Cargo.toml check licen
 ```
 
 Allowing a license in `deny.toml` means the dependency is known and accepted by the automated inventory; it is not a legal conclusion about every possible distribution model.
+
+The Qt license texts are reproduced unmodified from the GNU project's canonical documents: [LGPL-3.0](https://www.gnu.org/licenses/lgpl-3.0.txt) and [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.txt). The installed files are `licenses/Qt/LGPL-3.0.txt` and `licenses/Qt/GPL-3.0.txt`. They are included to accompany the dynamically linked Qt libraries; their presence is not a determination that this project's GPL-2.0-only code and the exact Qt distribution/module combination are legally compatible. Obtain review of the actual build, module provenance, linking/replacement mechanism, and distribution model before release.
+
+### Qt 6 Windows candidate — distribution remains blocked
+
+The current Windows candidate does not include the complete corresponding Qt source code or a written offer for it. Qt's published guidance says LGPL redistributors must provide the corresponding library source (or a written offer), notify users of their rights, and allow replacing/relinking compatible libraries; some Qt modules are GPL-only. The exact Qt modules, license grants, source revision, any local patches, replacement/install procedure, and compatibility with this project's GPL-2.0-only license have not been legally cleared. Including the license texts and SBOM is not enough. Do not distribute this candidate until the source/offer and technical relinking obligations are demonstrated and the exact license combination is approved.
+
+References: [Qt open-source license obligations](https://www.qt.io/licensing/open-source-lgpl-obligations), [GNU LGPL-3.0 text](https://www.gnu.org/licenses/lgpl-3.0.txt), and [GNU GPL-3.0 text](https://www.gnu.org/licenses/gpl-3.0.txt).
 
 ## mDNSResponder DNS-SD source and binary provenance
 

@@ -106,7 +106,8 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertIn("$_.hashes | Where-Object { $_.alg -eq 'SHA-256' -and $_.content }", validation)
         for component in (
             "dnssd.dll", "mDNSResponder.exe", "input-leap.exe", "input-leapc.exe", "input-leaps.exe",
-            "LICENSE.txt", "License.rtf", "THIRD_PARTY_NOTICES.md", "LICENSE", "LICENSE-APACHE-2.0.txt", "SOURCE.txt", "SHA256SUMS.txt",
+            "LICENSE.txt", "License.rtf", "THIRD_PARTY_NOTICES.md", "GPL-3.0.txt", "LGPL-3.0.txt",
+            "LICENSE", "LICENSE-APACHE-2.0.txt", "SOURCE.txt", "SHA256SUMS.txt",
         ):
             with self.subTest(component=component):
                 self.assertIn(component, validation)
@@ -117,6 +118,30 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         )[0]
         self.assertIn("SYFT_FILE_METADATA_SELECTION: all", windows_sbom)
         self.assertIn("build\\windows-installer-sbom-input", windows_sbom)
+
+    def test_windows_package_installs_complete_qt_license_texts(self):
+        cmake = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
+        notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+        gpl = (ROOT / "licenses" / "Qt" / "GPL-3.0.txt").read_text(encoding="utf-8")
+        lgpl = (ROOT / "licenses" / "Qt" / "LGPL-3.0.txt").read_text(encoding="utf-8")
+
+        self.assertTrue(gpl.startswith("                    GNU GENERAL PUBLIC LICENSE"))
+        self.assertTrue(lgpl.startswith("                   GNU LESSER GENERAL PUBLIC LICENSE"))
+        self.assertIn("Version 3, 29 June 2007", gpl)
+        self.assertIn("Version 3, 29 June 2007", lgpl)
+        self.assertGreater(len(gpl), 30_000)
+        self.assertGreater(len(lgpl), 7_000)
+        self.assertIn("licenses/Qt/GPL-3.0.txt", cmake)
+        self.assertIn("licenses/Qt/LGPL-3.0.txt", cmake)
+        self.assertIn("licenses\\Qt\\GPL-3.0.txt", workflow)
+        self.assertIn("licenses\\Qt\\LGPL-3.0.txt", workflow)
+        self.assertIn("Installed third-party notices do not identify both Qt license texts", workflow)
+        self.assertIn("Installed third-party notices do not preserve the unresolved Qt distribution blocker", workflow)
+        self.assertIn("GNU project's canonical documents", notices)
+        self.assertIn("does not establish which terms apply", notices)
+        self.assertIn("does not include the complete corresponding Qt source code or a written offer", notices)
+        self.assertIn("Do not distribute this candidate", notices)
 
 
 if __name__ == "__main__":
