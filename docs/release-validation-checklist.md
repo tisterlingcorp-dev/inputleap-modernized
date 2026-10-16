@@ -33,6 +33,7 @@ O artefato Inno Setup deve estar em `build\installer-inno\bin\InputLeapSetup-*.e
 
 - [ ] Gerar o instalador Inno em ambiente de release.
 - [ ] Gerar e arquivar os cinco SBOMs CycloneDX do workflow Release: pacote Windows instalado, workspace Rust, Tauri, agente e servidor. O Syft deve analisar diretórios contendo manifests/lockfiles; confirmar PURLs e relações transitivas nos quatro inventários Rust e revisar manualmente componentes redistribuídos que não sejam descobertos por manifests (incluindo Qt, OpenSSL, Bonjour/DNS-SD e DLLs do pacote).
+- [ ] Confirmar que cada DLL/plugin Qt do `licenses/Qt/DEPLOYED-PAYLOAD.json` aparece como componente `file` no SBOM Windows, com SHA-256 igual ao manifesto. Este é um gate de cobertura/integridade do inventário, não uma atribuição automática de licença nem aprovação legal.
 - [ ] Calcular SHA-256 a partir do pacote final, depois de todas as cópias.
 - [ ] Confirmar tamanho, caminho e identidade do arquivo por descriptor/handle.
 - [ ] Comparar versão, URL, tamanho e hash por canal independente.

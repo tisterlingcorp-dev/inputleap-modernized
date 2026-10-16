@@ -673,15 +673,23 @@ jobs:
               $qtPayloadPath = Join-Path $PWD 'build\windows-installer-sbom-input\licenses\Qt\DEPLOYED-PAYLOAD.json'
               $qtPayload = @(Get-Content -Raw -LiteralPath $qtPayloadPath | ConvertFrom-Json)
               if ($qtPayload.Count -eq 0) { throw 'Qt deployed-payload manifest is empty' }
+              $fileComponents = @($components | Where-Object { $_.type -eq 'file' })
               foreach ($entry in $qtPayload) {
                 if (-not $entry.path -or $entry.sha256 -notmatch '^[0-9a-f]{64}$' -or -not $entry.productVersion) {
                   throw "Qt deployed-payload entry is incomplete: $($entry.path)"
                 }
-                if ($componentNames -notcontains (Split-Path -Leaf $entry.path)) {
+                $payloadLeaf = Split-Path -Leaf $entry.path
+                $sbomEntry = @($fileComponents | Where-Object { (Split-Path -Leaf ($_.name -replace '/', '\')) -ieq $payloadLeaf })
+                if ($sbomEntry.Count -eq 0) {
                   throw "Windows package SBOM omits deployed Qt payload file: $($entry.path)"
                 }
+                $matchingHash = @($sbomEntry | Where-Object {
+                  @($_.hashes | Where-Object { $_.alg -eq 'SHA-256' -and $_.content -and $_.content.ToLowerInvariant() -eq $entry.sha256 }).Count -gt 0
+                })
+                if ($matchingHash.Count -eq 0) {
+                  throw "Windows package SBOM does not contain the manifest SHA-256 for deployed Qt file: $($entry.path)"
+                }
               }
-              $fileComponents = @($components | Where-Object { $_.type -eq 'file' })
               $missingHashes = @($fileComponents | Where-Object { @($_.hashes | Where-Object { $_.alg -eq 'SHA-256' -and $_.content }).Count -eq 0 })
               if ($missingHashes.Count -gt 0) { throw "Windows package SBOM has $($missingHashes.Count) file components without SHA-256 hashes" }
               if (-not $bom.metadata.component.name) { throw 'Windows package SBOM has no root package component' }

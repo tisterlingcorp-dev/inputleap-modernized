@@ -85,6 +85,22 @@ foreach ($file in @(
 
 $qtPayload = @(Get-Content -Raw -LiteralPath (Join-Path $installDir 'licenses\Qt\DEPLOYED-PAYLOAD.json') | ConvertFrom-Json)
 if ($qtPayload.Count -eq 0) { throw 'Installed Qt deployed-payload manifest is empty' }
+$windowsSbomPath = Join-Path $ArtifactDirectory 'input-leap-windows-x64.cdx.json'
+$windowsSbom = Get-Content -Raw -LiteralPath $windowsSbomPath | ConvertFrom-Json
+$windowsFileComponents = @($windowsSbom.components | Where-Object { $_.type -eq 'file' })
+foreach ($entry in $qtPayload) {
+    if (-not $entry.path -or $entry.sha256 -notmatch '^[0-9a-f]{64}$') {
+        throw "Invalid Qt deployed-payload entry: $($entry.path)"
+    }
+    $leaf = Split-Path -Leaf $entry.path
+    $matchingFiles = @($windowsFileComponents | Where-Object { (Split-Path -Leaf ($_.name -replace '/', '\')) -ieq $leaf })
+    $matchingHash = @($matchingFiles | Where-Object {
+        @($_.hashes | Where-Object { $_.alg -eq 'SHA-256' -and $_.content -and $_.content.ToLowerInvariant() -eq $entry.sha256 }).Count -gt 0
+    })
+    if ($matchingHash.Count -eq 0) {
+        throw "Windows SBOM does not contain the manifest SHA-256 for deployed Qt file: $($entry.path)"
+    }
+}
 foreach ($entry in $qtPayload) {
     $qtPath = Join-Path $installDir $entry.path.Replace('/', '\')
     if (-not (Test-Path -LiteralPath $qtPath -PathType Leaf)) {

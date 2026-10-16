@@ -187,6 +187,7 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         smoke = workflow.split("- name: Smoke-test Windows installer lifecycle", 1)[1].split(
             "- name:", 1
         )[0]
+        clean_smoke = (ROOT / "scripts" / "windows" / "smoke_installer_clean.ps1").read_text(encoding="utf-8")
 
         self.assertIn("DEPLOYED-PAYLOAD.json", build)
         self.assertIn("FileVersionInfo]::GetVersionInfo", build)
@@ -194,8 +195,12 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertIn("manifest is evidence for license review", build)
         self.assertIn("DEPLOYED-PAYLOAD.json", sbom)
         self.assertIn("$qtPayload.Count -eq 0", sbom)
-        self.assertIn("$componentNames -notcontains (Split-Path -Leaf $entry.path)", sbom)
+        self.assertIn("$fileComponents = @($components | Where-Object { $_.type -eq 'file' })", sbom)
+        self.assertIn("Windows package SBOM does not contain the manifest SHA-256 for deployed Qt file", sbom)
+        self.assertIn("$_.content.ToLowerInvariant() -eq $entry.sha256", sbom)
         self.assertIn("licenses\\Qt\\DEPLOYED-PAYLOAD.json", smoke)
+        self.assertIn("Windows SBOM does not contain the manifest SHA-256 for deployed Qt file", clean_smoke)
+        self.assertIn("$windowsFileComponents = @($windowsSbom.components | Where-Object { $_.type -eq 'file' })", clean_smoke)
         self.assertIn("$actualHash -ne $entry.sha256", smoke)
 
 
