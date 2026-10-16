@@ -157,6 +157,23 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertIn("Install-Package $installer.FullName 'Current repair/reinstall'", smoke)
         self.assertIn("Assert-InstalledPackage '' $requireMdns $requireCurrentLegalPayload", smoke)
 
+    def test_release_installer_is_smoke_tested_on_a_separate_fresh_windows_runner(self):
+        workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
+        clean_job = workflow.split("  windows-clean-installer-smoke:", 1)[1].split("  freebsd-build:", 1)[0]
+        smoke = (ROOT / "scripts" / "windows" / "smoke_installer_clean.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("needs: win-build", clean_job)
+        self.assertIn("runs-on: windows-2022", clean_job)
+        self.assertIn("actions/download-artifact@v7", clean_job)
+        self.assertIn("windows-installer-Windows Qt6", clean_job)
+        self.assertIn("SHA256SUMS.txt", smoke)
+        self.assertIn("input-leap-windows-x64.cdx.json", smoke)
+        self.assertIn("input-leap-server-dependencies.cdx.json", smoke)
+        self.assertIn("Get-FileHash -Algorithm SHA256", smoke)
+        self.assertIn("Install and uninstall package on a fresh Windows runner", clean_job)
+        self.assertIn("THIRD_PARTY_NOTICES.md", smoke)
+        self.assertIn("Uninstall removed shared ProgramData", smoke)
+
     def test_windows_package_records_and_verifies_exact_deployed_qt_payload(self):
         workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
         build = workflow.split("- name: Run build system", 1)[1].split("- name:", 1)[0]

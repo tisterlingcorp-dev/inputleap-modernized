@@ -870,6 +870,24 @@ jobs:
           path: .\build\installer-inno\bin
           if-no-files-found: error
 
+  windows-clean-installer-smoke:
+    name: Windows clean-runner installer smoke
+    if: ${{ (inputs.build_release || github.event_name == 'release') && needs.win-build.result == 'success' }}
+    needs: win-build
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: windows-installer-Windows Qt6
+          path: ${{ runner.temp }}\inputleap-installer
+
+      - name: Install and uninstall package on a fresh Windows runner
+        shell: pwsh
+        run: .\scripts\windows\smoke_installer_clean.ps1 -ArtifactDirectory "$env:RUNNER_TEMP\inputleap-installer"
+
   freebsd-build:
     if: ${{ inputs.include_legacy_platforms }}
     name: freebsd-14-3
