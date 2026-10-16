@@ -95,3 +95,8 @@ endif()
 add_test(NAME integrationtests
          COMMAND integtests
          WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+add_test(NAME integrationtests_rejects_missing_lock_path
+         COMMAND integtests --lock-file)
+set_tests_properties(integrationtests_rejects_missing_lock_path PROPERTIES
+                     WILL_FAIL TRUE)

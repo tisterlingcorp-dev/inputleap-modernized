@@ -27,10 +27,11 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <fstream>
+#include <string>
 
 #define LOCK_TIMEOUT 30
 
-void lock(std::string lockFile);
+bool lock(const std::string& lockFile);
 void unlock(std::string lockFile);
 
 int
@@ -48,14 +49,21 @@ main(int argc, char **argv)
     log.setFilter(kDEBUG2);
 
     std::string lockFile;
-    for (int i = 0; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         if (std::string(argv[i]).compare("--lock-file") == 0) {
-            lockFile = argv[i + 1];
+            if (i + 1 >= argc || argv[i + 1] == nullptr || argv[i + 1][0] == '\0') {
+                std::cerr << "--lock-file requires a non-empty path" << std::endl;
+                return 2;
+            }
+            lockFile = argv[++i];
         }
     }
 
     if (!lockFile.empty()) {
-        lock(lockFile);
+        if (!lock(lockFile)) {
+            std::cerr << "Unable to acquire integration test lock file" << std::endl;
+            return 2;
+        }
     }
 
 
@@ -75,7 +83,7 @@ main(int argc, char **argv)
   return (result == 1) ? 1 : 0;
 }
 
-void lock(std::string lockFile)
+bool lock(const std::string& lockFile)
 {
     double start = inputleap::current_time_seconds();
 
@@ -95,8 +103,12 @@ void lock(std::string lockFile)
     }
 
     // write empty lock file.
-    std::ofstream os(lockFile.c_str());
+    std::ofstream os(lockFile.c_str(), std::ios::out | std::ios::trunc);
+    if (!os) {
+        return false;
+    }
     os.close();
+    return static_cast<bool>(os);
 }
 
 void unlock(std::string lockFile)
