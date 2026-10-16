@@ -537,7 +537,7 @@ jobs:
         if: env.B_BUILD_TYPE == 'Release'
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
-          path: .\rust
+          path: .\input-leap\rust
           format: cyclonedx-json
           output-file: .\build\installer-inno\bin\input-leap-rust-workspace.cdx.json
           upload-artifact: false
@@ -547,7 +547,7 @@ jobs:
         if: env.B_BUILD_TYPE == 'Release'
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
-          path: .\rust\apps\input-leap\src-tauri
+          path: .\input-leap\rust\apps\input-leap\src-tauri
           format: cyclonedx-json
           output-file: .\build\installer-inno\bin\input-leap-tauri-dependencies.cdx.json
           upload-artifact: false
@@ -557,7 +557,7 @@ jobs:
         if: env.B_BUILD_TYPE == 'Release'
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
-          path: .\rust\bins\input-leap-agent
+          path: .\input-leap\rust\bins\input-leap-agent
           format: cyclonedx-json
           output-file: .\build\installer-inno\bin\input-leap-agent-dependencies.cdx.json
           upload-artifact: false
@@ -567,7 +567,7 @@ jobs:
         if: env.B_BUILD_TYPE == 'Release'
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
-          path: .\rust\bins\input-leap-server
+          path: .\input-leap\rust\bins\input-leap-server
           format: cyclonedx-json
           output-file: .\build\installer-inno\bin\input-leap-server-dependencies.cdx.json
           upload-artifact: false
