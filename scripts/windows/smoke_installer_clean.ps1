@@ -45,8 +45,15 @@ foreach ($name in $sbomNames) {
             if ($componentNames -notcontains $required) { throw "Windows SBOM omits: $required" }
         }
     }
-    $edges = @($sbom.dependencies | ForEach-Object { @($_.dependsOn).Count } | Measure-Object -Sum).Sum
-    if ($edges -lt 5) { throw "SBOM has insufficient dependency relationships: $name ($edges)" }
+    # File inventories produced by Syft intentionally describe package contents
+    # without a dependency graph. Relationship checks apply only to package
+    # manager dependency SBOMs, where purls and graph edges are meaningful.
+    if ($name -ne 'input-leap-windows-x64.cdx.json') {
+        $purls = @($components | Where-Object { $_.purl }).Count
+        $edges = @($sbom.dependencies | Where-Object { @($_.dependsOn).Count -gt 0 }).Count
+        if ($purls -lt 10) { throw "SBOM has insufficient package identifiers: $name ($purls)" }
+        if ($edges -lt 5) { throw "SBOM has insufficient dependency relationships: $name ($edges)" }
+    }
 }
 
 if (Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue) {
