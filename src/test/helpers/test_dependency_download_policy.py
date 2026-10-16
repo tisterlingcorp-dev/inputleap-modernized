@@ -32,6 +32,7 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertNotIn("x64_RelWithDebInfo.zip", workflow + local_build)
 
     def test_dns_sd_build_produces_and_installs_the_runtime_and_notices(self):
+        workflow = (ROOT / ".github" / "workflows" / "builds.yml").read_text(encoding="utf-8")
         build_script = (ROOT / "scripts" / "windows" / "build_mdns_responder.ps1").read_text(
             encoding="utf-8"
         )
@@ -56,6 +57,11 @@ class DependencyDownloadPolicyTests(unittest.TestCase):
         self.assertIn("Bin/x64/mDNSResponder.exe", cmake)
         self.assertIn("Licenses/mDNSResponder/LICENSE", cmake)
         self.assertIn('DestName: "THIRD_PARTY_NOTICES.md"', installer)
+        self.assertIn(
+            "if ($requireMdns -and $notices -notmatch",
+            workflow,
+            "The current DNS-SD revision is required for the candidate, not the older upgrade baseline",
+        )
         self.assertIn("IsInputLeapManagedDnsSdService", installer)
         self.assertIn("BeforeInstall: StopManagedDnsSdService", installer)
         self.assertIn("AfterInstall: InstallManagedDnsSdService", installer)

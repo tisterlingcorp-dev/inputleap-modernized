@@ -675,7 +675,7 @@ jobs:
               }
             }
             $notices = Get-Content -Raw -LiteralPath (Join-Path $installDir 'THIRD_PARTY_NOTICES.md')
-            if ($notices -notmatch 'f783506af3836b39b83fc14115bc2728a49db4b2') {
+            if ($requireMdns -and $notices -notmatch 'f783506af3836b39b83fc14115bc2728a49db4b2') {
               throw 'Installed third-party notices do not identify the bundled DNS-SD source revision'
             }
             $service = Get-Service -Name 'InputLeap' -ErrorAction SilentlyContinue
