@@ -92,6 +92,7 @@ TEST(FingerprintDatabase, write_file_reports_success_and_failure)
     ASSERT_TRUE(db.write(inputleap::path_from_utf8(path.string())));
     std::ifstream cleared(path);
     EXPECT_TRUE(cleared.peek() == std::ifstream::traits_type::eof());
+    cleared.close();
     EXPECT_FALSE(db.write(inputleap::path_from_utf8(
         (root / "missing" / "trusted.txt").string())));
 
