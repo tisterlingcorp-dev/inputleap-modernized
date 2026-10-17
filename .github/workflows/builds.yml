@@ -536,9 +536,12 @@ jobs:
               $_.Extension -in @('.json', '.spdx')
             })
             foreach ($candidate in $candidateSboms) {
-              $header = Get-Content -LiteralPath $candidate.FullName -TotalCount 8 -ErrorAction Stop | Out-String
-              if ($header -match '"spdxVersion"\s*:\s*"SPDX-2\.' -or
-                  $header -match '"bomFormat"\s*:\s*"CycloneDX"') {
+              $headerLines = @(Get-Content -LiteralPath $candidate.FullName -TotalCount 12 -ErrorAction Stop)
+              $header = $headerLines -join "`n"
+              $isSpdxTagValue = $header -match '(?m)^SPDXVersion:\s*SPDX-2\.3\s*$'
+              $isJsonDocument = $header -match '"spdxVersion"\s*:\s*"SPDX-2\.' -or
+                $header -match '"bomFormat"\s*:\s*"CycloneDX"'
+              if ($isSpdxTagValue -or $isJsonDocument) {
                 $qtSboms += $candidate
               } elseif ($candidate.Name -match 'qt-framework|sbom|spdx') {
                 throw "Qt SBOM candidate does not have a recognized SPDX/CycloneDX header: $($candidate.FullName)"
@@ -555,9 +558,11 @@ jobs:
               $destination = Join-Path $qtSbomDir $relativeSbomPath
               New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
               Copy-Item -LiteralPath $sbom.FullName -Destination $destination -Force
-              $json = Get-Content -Raw -LiteralPath $destination | ConvertFrom-Json
-              if ($json.spdxVersion -notmatch '^SPDX-2\.' -and $json.bomFormat -ne 'CycloneDX') {
-                throw "Qt SBOM is not recognized as SPDX or CycloneDX: $($sbom.FullName)"
+              if ($sbom.Extension -ieq '.json') {
+                $json = Get-Content -Raw -LiteralPath $destination | ConvertFrom-Json
+                if ($json.spdxVersion -notmatch '^SPDX-2\.' -and $json.bomFormat -ne 'CycloneDX') {
+                  throw "Qt SBOM JSON is not recognized as SPDX or CycloneDX: $($sbom.FullName)"
+                }
               }
             }
             Write-Host "Preserved $($qtSboms.Count) Qt SDK SBOM file(s) from '$qtSbomRoot'."
@@ -705,12 +710,14 @@ jobs:
               }
               $qtSbomDir = Join-Path $PWD 'build\windows-installer-sbom-input\licenses\Qt\sbom'
               if (Test-Path -LiteralPath $qtSbomDir -PathType Container) {
-                $qtSbomFiles = @(Get-ChildItem -LiteralPath $qtSbomDir -File)
+                $qtSbomFiles = @(Get-ChildItem -LiteralPath $qtSbomDir -Recurse -File)
                 if ($qtSbomFiles.Count -eq 0) { throw 'Qt SBOM directory exists but contains no files' }
                 foreach ($qtSbomFile in $qtSbomFiles) {
+                  $header = Get-Content -LiteralPath $qtSbomFile.FullName -TotalCount 12 | Out-String
+                  if ($header -match '(?m)^SPDXVersion:\s*SPDX-2\.3\s*$') { continue }
                   $qtSbomJson = Get-Content -Raw -LiteralPath $qtSbomFile.FullName | ConvertFrom-Json
                   if ($qtSbomJson.spdxVersion -notmatch '^SPDX-2\.' -and $qtSbomJson.bomFormat -ne 'CycloneDX') {
-                    throw "Packaged Qt SBOM is not recognized: $($qtSbomFile.Name)"
+                    throw "Packaged Qt SBOM JSON is not recognized: $($qtSbomFile.Name)"
                   }
                 }
               }

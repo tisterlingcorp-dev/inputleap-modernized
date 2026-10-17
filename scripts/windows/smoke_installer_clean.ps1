@@ -84,12 +84,14 @@ foreach ($file in @(
 }
 $qtSbomDir = Join-Path $installDir 'licenses\Qt\sbom'
 if (Test-Path -LiteralPath $qtSbomDir -PathType Container) {
-    $qtSbomFiles = @(Get-ChildItem -LiteralPath $qtSbomDir -File)
+    $qtSbomFiles = @(Get-ChildItem -LiteralPath $qtSbomDir -Recurse -File)
     if ($qtSbomFiles.Count -eq 0) { throw 'Installed Qt SBOM directory is empty' }
     foreach ($qtSbomFile in $qtSbomFiles) {
+        $header = Get-Content -LiteralPath $qtSbomFile.FullName -TotalCount 12 | Out-String
+        if ($header -match '(?m)^SPDXVersion:\s*SPDX-2\.3\s*$') { continue }
         $qtSbom = Get-Content -Raw -LiteralPath $qtSbomFile.FullName | ConvertFrom-Json
         if ($qtSbom.spdxVersion -notmatch '^SPDX-2\.' -and $qtSbom.bomFormat -ne 'CycloneDX') {
-            throw "Installed Qt SBOM is not recognized: $($qtSbomFile.Name)"
+            throw "Installed Qt SBOM JSON is not recognized: $($qtSbomFile.Name)"
         }
     }
 }
