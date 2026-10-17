@@ -536,16 +536,29 @@ jobs:
               $_.Extension -in @('.json', '.spdx')
             })
             foreach ($candidate in $candidateSboms) {
-              $headerLines = @(Get-Content -LiteralPath $candidate.FullName -TotalCount 12 -ErrorAction Stop)
-              $header = $headerLines -join "`n"
-              $isSpdxTagValue = $header -match '(?m)^SPDXVersion:\s*SPDX-2\.[0-9]+\s*$'
-              $isJsonDocument = $header -match '"spdxVersion"\s*:\s*"SPDX-2\.' -or
-                $header -match '"bomFormat"\s*:\s*"CycloneDX"'
+              $headerLines = @()
+              $isSpdxTagValue = $false
+              $isJsonDocument = $false
+              if ($candidate.Extension -ieq '.json') {
+                try {
+                  $candidateJson = Get-Content -Raw -LiteralPath $candidate.FullName -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+                  $isJsonDocument = $candidateJson.spdxVersion -match '^SPDX-2\.' -or
+                    $candidateJson.bomFormat -eq 'CycloneDX'
+                } catch {
+                  if ($candidate.Name -match 'qt-framework|sbom|spdx') {
+                    throw "Qt SBOM candidate is invalid JSON: $($candidate.FullName): $($_.Exception.Message)"
+                  }
+                }
+              } else {
+                $headerLines = @(Get-Content -LiteralPath $candidate.FullName -TotalCount 12 -ErrorAction Stop)
+                $header = $headerLines -join "`n"
+                $isSpdxTagValue = $header -match '(?m)^SPDXVersion:\s*SPDX-2\.[0-9]+\s*$'
+              }
               if ($isSpdxTagValue -or $isJsonDocument) {
                 $qtSboms += $candidate
               } elseif ($candidate.Name -match 'qt-framework|sbom|spdx') {
-                $diagnosticHeader = ($headerLines | Select-Object -First 5) -join ' | '
-                throw "Qt SBOM candidate does not have a recognized SPDX/CycloneDX header: $($candidate.FullName). First lines: $diagnosticHeader"
+                $diagnosticHeader = if ($headerLines.Count -gt 0) { ($headerLines | Select-Object -First 5) -join ' | ' } else { 'JSON parsed but had no recognized SPDX/CycloneDX version field' }
+                throw "Qt SBOM candidate does not have a recognized SPDX/CycloneDX header: $($candidate.FullName). $diagnosticHeader"
               }
             }
           }
