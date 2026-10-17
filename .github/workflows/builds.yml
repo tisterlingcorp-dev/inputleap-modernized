@@ -532,9 +532,18 @@ jobs:
           $qtSbomRoot = Join-Path $env:QT_ROOT_DIR 'sbom'
           $qtSboms = @()
           if (Test-Path -LiteralPath $qtSbomRoot -PathType Container) {
-            $qtSboms = @(Get-ChildItem -LiteralPath $qtSbomRoot -Recurse -File | Where-Object {
-              $_.Name -match '\.(spdx|json)$' -and ($_.Name -match 'sbom|spdx|qt-framework' -or $_.Extension -eq '.spdx')
+            $candidateSboms = @(Get-ChildItem -LiteralPath $qtSbomRoot -Recurse -File | Where-Object {
+              $_.Extension -in @('.json', '.spdx')
             })
+            foreach ($candidate in $candidateSboms) {
+              $header = Get-Content -LiteralPath $candidate.FullName -TotalCount 8 -ErrorAction Stop | Out-String
+              if ($header -match '"spdxVersion"\s*:\s*"SPDX-2\.' -or
+                  $header -match '"bomFormat"\s*:\s*"CycloneDX"') {
+                $qtSboms += $candidate
+              } elseif ($candidate.Name -match 'qt-framework|sbom|spdx') {
+                throw "Qt SBOM candidate does not have a recognized SPDX/CycloneDX header: $($candidate.FullName)"
+              }
+            }
           }
           if ($qtSboms.Count -eq 0) {
             Write-Warning "Qt SDK did not provide an SPDX/SBOM file under '$qtSbomRoot'; upstream component license provenance remains unresolved."
