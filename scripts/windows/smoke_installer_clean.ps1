@@ -82,6 +82,17 @@ foreach ($file in @(
         throw "Required installed file missing: $file"
     }
 }
+$qtSbomDir = Join-Path $installDir 'licenses\Qt\sbom'
+if (Test-Path -LiteralPath $qtSbomDir -PathType Container) {
+    $qtSbomFiles = @(Get-ChildItem -LiteralPath $qtSbomDir -File)
+    if ($qtSbomFiles.Count -eq 0) { throw 'Installed Qt SBOM directory is empty' }
+    foreach ($qtSbomFile in $qtSbomFiles) {
+        $qtSbom = Get-Content -Raw -LiteralPath $qtSbomFile.FullName | ConvertFrom-Json
+        if ($qtSbom.spdxVersion -notmatch '^SPDX-2\.' -and $qtSbom.bomFormat -ne 'CycloneDX') {
+            throw "Installed Qt SBOM is not recognized: $($qtSbomFile.Name)"
+        }
+    }
+}
 
 $qtPayload = @(Get-Content -Raw -LiteralPath (Join-Path $installDir 'licenses\Qt\DEPLOYED-PAYLOAD.json') | ConvertFrom-Json)
 if ($qtPayload.Count -eq 0) { throw 'Installed Qt deployed-payload manifest is empty' }

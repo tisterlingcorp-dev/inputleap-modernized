@@ -529,6 +529,28 @@ jobs:
           $qtManifestPath = Join-Path $installDir 'licenses\Qt\DEPLOYED-PAYLOAD.json'
           New-Item -ItemType Directory -Path (Split-Path -Parent $qtManifestPath) -Force | Out-Null
           $qtManifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $qtManifestPath -Encoding utf8
+          $qtSbomRoot = Join-Path $env:QT_ROOT_DIR 'sbom'
+          $qtSboms = @()
+          if (Test-Path -LiteralPath $qtSbomRoot -PathType Container) {
+            $qtSboms = @(Get-ChildItem -LiteralPath $qtSbomRoot -Recurse -File | Where-Object {
+              $_.Name -match '\.(spdx|json)$' -and $_.Name -match 'sbom|spdx'
+            })
+          }
+          if ($qtSboms.Count -eq 0) {
+            Write-Warning "Qt SDK did not provide an SPDX/SBOM file under '$qtSbomRoot'; upstream component license provenance remains unresolved."
+          } else {
+            $qtSbomDir = Join-Path $installDir 'licenses\Qt\sbom'
+            New-Item -ItemType Directory -Path $qtSbomDir -Force | Out-Null
+            foreach ($sbom in $qtSboms) {
+              $destination = Join-Path $qtSbomDir $sbom.Name
+              Copy-Item -LiteralPath $sbom.FullName -Destination $destination -Force
+              $json = Get-Content -Raw -LiteralPath $destination | ConvertFrom-Json
+              if ($json.spdxVersion -notmatch '^SPDX-2\.' -and $json.bomFormat -ne 'CycloneDX') {
+                throw "Qt SBOM is not recognized as SPDX or CycloneDX: $($sbom.FullName)"
+              }
+            }
+            Write-Host "Preserved $($qtSboms.Count) Qt SDK SBOM file(s) from '$qtSbomRoot'."
+          }
           $env:QT_QPA_PLATFORM = "windows"
           ctest --test-dir build -C $env:B_BUILD_TYPE --output-on-failure
 
@@ -669,6 +691,17 @@ jobs:
               $componentNames = @($components | ForEach-Object { ($_.name -replace '\\', '/').Split('/')[-1] })
               foreach ($required in @('dnssd.dll', 'mDNSResponder.exe', 'input-leap.exe', 'input-leapc.exe', 'input-leaps.exe', 'LICENSE.txt', 'License.rtf', 'THIRD_PARTY_NOTICES.md', 'GPL-2.0.txt', 'DEPLOYED-PAYLOAD.json', 'SOURCE.txt', 'LICENSE', 'LICENSE-APACHE-2.0.txt', 'SHA256SUMS.txt')) {
                 if ($componentNames -notcontains $required) { throw "Windows installer SBOM does not inventory required runtime/provenance/legal file: $required" }
+              }
+              $qtSbomDir = Join-Path $PWD 'build\windows-installer-sbom-input\licenses\Qt\sbom'
+              if (Test-Path -LiteralPath $qtSbomDir -PathType Container) {
+                $qtSbomFiles = @(Get-ChildItem -LiteralPath $qtSbomDir -File)
+                if ($qtSbomFiles.Count -eq 0) { throw 'Qt SBOM directory exists but contains no files' }
+                foreach ($qtSbomFile in $qtSbomFiles) {
+                  $qtSbomJson = Get-Content -Raw -LiteralPath $qtSbomFile.FullName | ConvertFrom-Json
+                  if ($qtSbomJson.spdxVersion -notmatch '^SPDX-2\.' -and $qtSbomJson.bomFormat -ne 'CycloneDX') {
+                    throw "Packaged Qt SBOM is not recognized: $($qtSbomFile.Name)"
+                  }
+                }
               }
               $qtPayloadPath = Join-Path $PWD 'build\windows-installer-sbom-input\licenses\Qt\DEPLOYED-PAYLOAD.json'
               $qtPayload = @(Get-Content -Raw -LiteralPath $qtPayloadPath | ConvertFrom-Json)
