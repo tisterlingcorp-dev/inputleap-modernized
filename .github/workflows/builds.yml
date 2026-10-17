@@ -533,7 +533,7 @@ jobs:
           $qtSboms = @()
           if (Test-Path -LiteralPath $qtSbomRoot -PathType Container) {
             $qtSboms = @(Get-ChildItem -LiteralPath $qtSbomRoot -Recurse -File | Where-Object {
-              $_.Name -match '\.(spdx|json)$' -and ($_.Name -match 'sbom|spdx' -or $_.Extension -eq '.spdx')
+              $_.Name -match '\.(spdx|json)$' -and ($_.Name -match 'sbom|spdx|qt-framework' -or $_.Extension -eq '.spdx')
             })
           }
           if ($qtSboms.Count -eq 0) {
@@ -542,7 +542,7 @@ jobs:
             $qtSbomDir = Join-Path $installDir 'licenses\Qt\sbom'
             New-Item -ItemType Directory -Path $qtSbomDir -Force | Out-Null
             foreach ($sbom in $qtSboms) {
-              $relativeSbomPath = $sbom.FullName.Substring($qtSbomRoot.Length).TrimStart([char[]]@('\\', '/'))
+              $relativeSbomPath = $sbom.FullName.Substring($qtSbomRoot.Length).TrimStart([char[]]@('\', '/'))
               $destination = Join-Path $qtSbomDir $relativeSbomPath
               New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
               Copy-Item -LiteralPath $sbom.FullName -Destination $destination -Force
