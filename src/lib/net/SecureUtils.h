@@ -31,9 +31,15 @@ std::string format_ssl_fingerprint_columns(const std::vector<uint8_t>& fingerpri
 
 FingerprintData get_ssl_cert_fingerprint(X509* cert, FingerprintType type);
 
+bool is_ssl_certificate_current(X509* cert);
+
 FingerprintData get_pem_file_cert_fingerprint(const std::string& path, FingerprintType type);
 
 void generate_pem_self_signed_cert(const std::string& path);
+
+// On Windows, create or protect a private file with a DACL granting access
+// only to the current user, LocalSystem, and local Administrators.
+bool secure_private_file_permissions(const std::string& path);
 
 std::string create_fingerprint_randomart(const std::vector<std::uint8_t>& dgst_raw);
 

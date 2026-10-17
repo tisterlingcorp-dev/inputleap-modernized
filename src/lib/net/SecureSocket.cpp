@@ -86,6 +86,7 @@ SecureSocket::~SecureSocket()
 void
 SecureSocket::close()
 {
+    m_secureReady.store(false, std::memory_order_release);
     isFatal(true);
     freeSSLResources();
     TCPSocket::close();
@@ -110,6 +111,7 @@ void SecureSocket::freeSSLResources()
 void
 SecureSocket::connect(const NetworkAddress& addr)
 {
+    m_secureReady.store(false, std::memory_order_release);
     m_events->add_handler(EventType::DATA_SOCKET_CONNECTED, get_event_target(),
                           [this](const auto& e){ handle_tcp_connected(e); });
 
@@ -120,7 +122,7 @@ std::unique_ptr<ISocketMultiplexerJob> SecureSocket::newJob()
 {
     // after TCP connection is established, SecureSocket will pick up
     // connected event and do secureConnect
-    if (m_connected && !m_secureReady) {
+    if (m_connected && !m_secureReady.load(std::memory_order_acquire)) {
         return {};
     }
 
@@ -130,6 +132,7 @@ std::unique_ptr<ISocketMultiplexerJob> SecureSocket::newJob()
 void
 SecureSocket::secureConnect()
 {
+    m_secureReady.store(false, std::memory_order_release);
     setJob(std::make_unique<TSocketMultiplexerMethodJob>([this](auto j, auto r, auto w, auto e)
                                                          { return serviceConnect(j, r, w, e); },
                                                          getSocket(), isReadable(), isWritable()));
@@ -138,6 +141,7 @@ SecureSocket::secureConnect()
 void
 SecureSocket::secureAccept()
 {
+    m_secureReady.store(false, std::memory_order_release);
     setJob(std::make_unique<TSocketMultiplexerMethodJob>([this](auto j, auto r, auto w, auto e)
                                                          { return serviceAccept(j, r, w, e); },
                                                          getSocket(), isReadable(), isWritable()));
@@ -305,7 +309,7 @@ SecureSocket::secureWrite(const void* buffer, int size, int& wrote)
 bool
 SecureSocket::isSecureReady()
 {
-    return m_secureReady;
+    return m_secureReady.load(std::memory_order_acquire);
 }
 
 void
@@ -448,7 +452,7 @@ SecureSocket::secureAccept(int socket)
     if (isFatal()) {
         LOG_ERR("failed to accept secure socket");
         LOG_INFO("client connection may not be secure");
-        m_secureReady = false;
+        m_secureReady.store(false, std::memory_order_release);
         secure_accept_retry_ = 0;
         return -1; // Failed, error out
     }
@@ -468,7 +472,7 @@ SecureSocket::secureAccept(int socket)
             }
         }
 
-        m_secureReady = true;
+        m_secureReady.store(true, std::memory_order_release);
         LOG_INFO("accepted secure socket");
         if (CLOG->getFilter() >= kDEBUG1) {
             showSecureCipherInfo();
@@ -480,7 +484,7 @@ SecureSocket::secureAccept(int socket)
     // If not fatal and retry is set, not ready, and return retry
     if (secure_accept_retry_ > 0) {
         LOG_DEBUG2("retry accepting secure socket");
-        m_secureReady = false;
+        m_secureReady.store(false, std::memory_order_release);
         inputleap::this_thread_sleep(s_retryDelay);
         return 0;
     }
@@ -522,14 +526,13 @@ SecureSocket::secureConnect(int socket)
     // If we should retry, not ready and return 0
     if (secure_connect_retry_ > 0) {
         LOG_DEBUG2("retry connect secure socket");
-        m_secureReady = false;
+        m_secureReady.store(false, std::memory_order_release);
         inputleap::this_thread_sleep(s_retryDelay);
         return 0;
     }
 
     secure_connect_retry_ = 0;
-    // No error, set ready, process and return ok
-    m_secureReady = true;
+    // Do not permit application I/O until the server certificate has been pinned.
     if (verify_peer_certificate(inputleap::DataDirectories::trusted_servers_ssl_fingerprints_path())) {
         LOG_INFO("connected to secure socket");
     }
@@ -538,6 +541,7 @@ SecureSocket::secureConnect(int socket)
         disconnect();
         return -1; // Fingerprint failed, error
     }
+    m_secureReady.store(true, std::memory_order_release);
     LOG_DEBUG2("connected secure socket");
     if (CLOG->getFilter() >= kDEBUG1) {
         showSecureCipherInfo();
@@ -675,6 +679,12 @@ bool SecureSocket::verify_peer_certificate(const inputleap::fs::path& fingerprin
         return false;
     }
     auto cert_free = inputleap::finally([cert]() { X509_free(cert); });
+
+    if (!inputleap::is_ssl_certificate_current(cert)) {
+        showError("peer certificate is not currently valid");
+        return false;
+    }
+
     char* line = X509_NAME_oneline(X509_get_subject_name(cert), nullptr, 0);
     LOG_INFO("peer ssl certificate info: %s", line);
     OPENSSL_free(line);

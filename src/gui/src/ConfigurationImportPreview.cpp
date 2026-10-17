@@ -111,7 +111,8 @@ ConfigurationImportPreview::create(const QByteArray& packageBytes,
     preview.summary.preferenceChanges = preferenceChangeCount(
         current.preferences, preview.candidate.snapshot.preferences);
     preview.summary.weakensTransportSecurity = weakensTransportSecurity(
-        current.preferences, preview.candidate.snapshot.preferences);
+        current.preferences, preview.candidate.snapshot.preferences) ||
+        preview.candidate.snapshot.requestsTransportSecurityDowngrade;
     preview.summary.profileChanges = profileChangeCount(
         current.environmentProfiles, preview.candidate.snapshot.environmentProfiles);
     preview.summary.profileCount = preview.candidate.snapshot.environmentProfiles.profiles.size();

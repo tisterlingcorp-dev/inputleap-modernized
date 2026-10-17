@@ -161,6 +161,34 @@ TEST_F(MSWindowsClipboardTests, add_newValue_valueWasStored)
     EXPECT_EQ("test string!", actual);
 }
 
+TEST_F(MSWindowsClipboardTests, add_bitmap_preservesDibOnWindowsClipboard)
+{
+    BITMAPINFOHEADER header{};
+    header.biSize = sizeof(BITMAPINFOHEADER);
+    header.biWidth = 1;
+    header.biHeight = 1;
+    header.biPlanes = 1;
+    header.biBitCount = 24;
+    header.biCompression = BI_RGB;
+    header.biSizeImage = 4; // One padded 24-bit scanline.
+
+    std::string dib(sizeof(header) + header.biSizeImage, '\0');
+    std::memcpy(dib.data(), &header, sizeof(header));
+    dib[sizeof(header)] = static_cast<char>(0x11);
+    dib[sizeof(header) + 1] = static_cast<char>(0x22);
+    dib[sizeof(header) + 2] = static_cast<char>(0x33);
+
+    MSWindowsClipboard clipboard(nullptr);
+    ASSERT_TRUE(clipboard.open(0));
+    clipboard.add(IClipboard::kBitmap, dib);
+
+    ASSERT_TRUE(clipboard.has(IClipboard::kBitmap));
+    const std::string actual = clipboard.get(IClipboard::kBitmap);
+    ASSERT_GE(actual.size(), dib.size());
+    EXPECT_EQ(dib, actual.substr(0, dib.size()));
+    clipboard.close();
+}
+
 TEST_F(MSWindowsClipboardTests, add_newValue_writeWasCalled)
 {
     MockFacade facade;

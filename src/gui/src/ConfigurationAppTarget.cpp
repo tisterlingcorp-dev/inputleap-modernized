@@ -672,12 +672,23 @@ ConfigurationAppTarget::recoverPortablePreferencesBeforePreflight(
             {QStringLiteral("minimizeToTray"), settings.value(
                  QStringLiteral("minimizeToTray"), false).toBool()},
         };
+#if defined(Q_OS_WIN)
+    // Older Windows versions could persist disabled transport settings. The
+    // runtime now normalizes these values to the enforced secure policy, so
+    // treat that legacy representation as the same effective state while
+    // reconciling an authenticated in-flight import journal.
+    QJsonObject effectiveCurrentPreferences = currentPreferences;
+    effectiveCurrentPreferences.insert(QStringLiteral("cryptoEnabled"), true);
+    effectiveCurrentPreferences.insert(QStringLiteral("requireClientCertificate"), true);
+#else
+    const QJsonObject& effectiveCurrentPreferences = currentPreferences;
+#endif
         const QJsonObject originalPreferences =
             ConfigurationPortablePreferencesCodec::encode(original->preferences);
         const QJsonObject candidatePreferences =
             ConfigurationPortablePreferencesCodec::encode(candidate->preferences);
         if (!fieldsBelongToTransaction(
-                currentPreferences, originalPreferences, candidatePreferences)) {
+                effectiveCurrentPreferences, originalPreferences, candidatePreferences)) {
             return PendingRecoveryResult::Blocked;
         }
         const auto& selected = original->preferences;
@@ -1308,8 +1319,14 @@ ConfigurationAppTarget::recoverPendingImport()
     const auto current = snapshot();
     const auto sensitive = readPairingCode();
     if (!current || !sensitive.readable) return PendingRecoveryResult::Blocked;
-    const auto currentPreferences = ConfigurationPortablePreferencesCodec::encode(
+    auto currentPreferences = ConfigurationPortablePreferencesCodec::encode(
         current->preferences);
+#if defined(Q_OS_WIN)
+    // Legacy Windows settings are normalized to the enforced secure policy.
+    // Compare journals against that effective state so recovery can finish.
+    currentPreferences.insert(QStringLiteral("cryptoEnabled"), true);
+    currentPreferences.insert(QStringLiteral("requireClientCertificate"), true);
+#endif
     const bool preferencesRecognized = fieldsBelongToTransaction(
         currentPreferences,
         ConfigurationPortablePreferencesCodec::encode(journal.original->preferences),

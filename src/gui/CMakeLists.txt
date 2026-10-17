@@ -367,6 +367,29 @@ if (BUILD_MSWINDOWS)
     find_library (DNSSD_LIB dnssd.lib
                   HINTS ENV BONJOUR_SDK_HOME
                   PATH_SUFFIXES "Lib/x64")
+    foreach (mdns_file IN ITEMS
+        "$ENV{BONJOUR_SDK_HOME}/Bin/x64/dnssd.dll"
+        "$ENV{BONJOUR_SDK_HOME}/Bin/x64/mDNSResponder.exe"
+        "$ENV{BONJOUR_SDK_HOME}/Licenses/mDNSResponder/LICENSE"
+        "$ENV{BONJOUR_SDK_HOME}/Licenses/mDNSResponder/LICENSE-APACHE-2.0.txt"
+        "$ENV{BONJOUR_SDK_HOME}/SOURCE.txt"
+        "$ENV{BONJOUR_SDK_HOME}/SHA256SUMS.txt")
+        if (NOT EXISTS "${mdns_file}")
+            message (FATAL_ERROR "Required source-built DNS-SD package file is missing: ${mdns_file}")
+        endif()
+    endforeach()
+    install(FILES
+        "$ENV{BONJOUR_SDK_HOME}/Bin/x64/dnssd.dll"
+        "$ENV{BONJOUR_SDK_HOME}/Bin/x64/mDNSResponder.exe"
+        DESTINATION .)
+    install(FILES
+        "$ENV{BONJOUR_SDK_HOME}/Licenses/mDNSResponder/LICENSE"
+        "$ENV{BONJOUR_SDK_HOME}/Licenses/mDNSResponder/LICENSE-APACHE-2.0.txt"
+        DESTINATION licenses/mDNSResponder)
+    install(FILES
+        "$ENV{BONJOUR_SDK_HOME}/SOURCE.txt"
+        "$ENV{BONJOUR_SDK_HOME}/SHA256SUMS.txt"
+        DESTINATION licenses/mDNSResponder)
     set_target_properties (input-leap PROPERTIES LINK_FLAGS "/NODEFAULTLIB:LIBCMT")
     target_link_libraries(input-leap ${DNSSD_LIB})
     target_link_libraries(input-leap ole32 oleaut32 shell32)

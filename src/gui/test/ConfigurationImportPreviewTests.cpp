@@ -65,7 +65,22 @@ TEST(ConfigurationImportPreviewTests, PreviewExplicitlyFlagsTransportSecurityDow
     const auto exported = ConfigurationExportService::build(candidate);
     ASSERT_TRUE(exported.package);
 
+#if defined(Q_OS_WIN)
+    // Model a package produced by an older Windows build that requested the
+    // disabled policy; decoding must retain the request while enforcing TLS.
+    auto legacyPackage = ConfigurationPackageCodec::decode(*exported.package);
+    ASSERT_EQ(legacyPackage.error, ConfigurationPackageCodec::Error::None);
+    ASSERT_TRUE(legacyPackage.package);
+    QJsonObject legacyPreferences =
+        legacyPackage.package->publicData.value(QStringLiteral("preferences")).toObject();
+    legacyPreferences.insert(QStringLiteral("cryptoEnabled"), false);
+    legacyPreferences.insert(QStringLiteral("requireClientCertificate"), false);
+    legacyPackage.package->publicData.insert(QStringLiteral("preferences"), legacyPreferences);
+    const QByteArray packageBytes = ConfigurationPackageCodec::encode(*legacyPackage.package);
+    const auto preview = ConfigurationImportPreview::create(packageBytes, current, {});
+#else
     const auto preview = ConfigurationImportPreview::create(*exported.package, current, {});
+#endif
 
     ASSERT_EQ(preview.error, ConfigurationImportPreview::Error::None);
     ASSERT_TRUE(preview.preview);

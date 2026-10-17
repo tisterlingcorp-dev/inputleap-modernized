@@ -12,6 +12,9 @@ struct ConfigurationPublicSnapshot
 {
     ConfigurationPortablePreferences preferences;
     EnvironmentProfileJsonCodec::Collection environmentProfiles;
+    // Set only while decoding an imported package. It is deliberately omitted
+    // from encoding because it describes the source request, not runtime state.
+    bool requestsTransportSecurityDowngrade = false;
 };
 
 class ConfigurationPublicSnapshotCodec

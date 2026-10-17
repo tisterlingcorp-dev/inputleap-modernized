@@ -893,7 +893,15 @@ protected:
                                 it.value(), "manifest-v1");
                             state->manifestKey.detach();
                         }
-                        authenticator->setPreSharedKey(it.value());
+                        QByteArray tlsPsk = FileTransferResume::deriveContextKey(
+                            it.value(), "tls-psk-v1");
+                        if (tlsPsk.size() != 32) {
+                            authenticator->setPreSharedKey({});
+                            cleanse(tlsPsk);
+                            return;
+                        }
+                        authenticator->setPreSharedKey(tlsPsk);
+                        cleanse(tlsPsk);
                     });
             if (!configureTlsPsk(socket)) {
                 socket->disconnectFromHost();
@@ -1823,12 +1831,21 @@ bool FileTransferService::sendItems(const QString& host,
         QByteArray preSharedKey=useDeviceKey?suppliedPreSharedKey:pairingKeyForCode(pairingCode);
         preSharedKey.detach();
         const auto keyGuard=qScopeGuard([&preSharedKey]{cleanse(preSharedKey);});
+        QByteArray tlsPsk = useDeviceKey
+            ? FileTransferResume::deriveContextKey(preSharedKey, "tls-psk-v1")
+            : preSharedKey;
+        tlsPsk.detach();
+        const auto tlsPskGuard=qScopeGuard([&tlsPsk]{cleanse(tlsPsk);});
+        if (useDeviceKey && tlsPsk.size() != 32) {
+            if (errorMessage) *errorMessage=tr("TLS-PSK key derivation failed");
+            return false;
+        }
         QSslSocket socket;
         if (!preSharedKey.isEmpty()) {
             connect(&socket, &QSslSocket::preSharedKeyAuthenticationRequired, &socket,
-                    [&preSharedKey,localUuid,useDeviceKey](QSslPreSharedKeyAuthenticator* authenticator) {
+                    [&tlsPsk,localUuid,useDeviceKey](QSslPreSharedKeyAuthenticator* authenticator) {
                         authenticator->setIdentity(useDeviceKey?deviceIdentity(localUuid):kLegacyTlsPskIdentity);
-                        authenticator->setPreSharedKey(preSharedKey);
+                        authenticator->setPreSharedKey(tlsPsk);
                     });
             if (!configureTlsPsk(&socket)) {
                 if (errorMessage != nullptr) {

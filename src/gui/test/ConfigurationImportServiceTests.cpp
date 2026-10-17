@@ -235,6 +235,7 @@ TEST(ConfigurationImportServiceTests, SecurityDowngradeRequiresExplicitConsentBe
     auto preview = candidatePreview();
     preview.candidate.snapshot.preferences = *ConfigurationPortablePreferences::create(
         24800, 3, QStringLiteral("en"), false, false, false, false, false);
+    preview.summary.weakensTransportSecurity = true;
 
     const auto blockedResult = applyWithPassword(preview, blocked);
 
@@ -248,7 +249,12 @@ TEST(ConfigurationImportServiceTests, SecurityDowngradeRequiresExplicitConsentBe
     authorized.backupPath = directory.filePath(QStringLiteral("authorized-backup.ilconfig"));
     const auto authorizedResult = applyWithPassword(preview, authorized, true);
     EXPECT_EQ(authorizedResult, ConfigurationImportService::Error::None);
+#if defined(Q_OS_WIN)
+    EXPECT_TRUE(authorized.snapshot.preferences.cryptoEnabled());
+    EXPECT_TRUE(authorized.snapshot.preferences.requireClientCertificate());
+#else
     EXPECT_FALSE(authorized.snapshot.preferences.cryptoEnabled());
+#endif
 }
 
 TEST(ConfigurationImportServiceTests, UnauthenticatedImportRequiresExplicitServiceConsent)

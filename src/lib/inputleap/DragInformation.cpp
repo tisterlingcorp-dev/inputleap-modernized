@@ -20,10 +20,15 @@
 #include "io/filesystem.h"
 
 #include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <chrono>
 #include <fstream>
 #include <limits>
+#include <set>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 namespace inputleap {
 
@@ -32,6 +37,52 @@ namespace {
 constexpr char kFilePackageMagic[] = "ILFILE1";
 constexpr std::size_t kMaxFilePackageSize = 256 * 1024 * 1024;
 constexpr std::uint32_t kMaxFileCount = 128;
+std::atomic<std::uint64_t> g_stagingSequence{0};
+
+class StagingDirectory {
+public:
+    explicit StagingDirectory(fs::path path) : m_path(std::move(path)) {}
+    ~StagingDirectory()
+    {
+        std::error_code ignored;
+        fs::remove_all(m_path, ignored);
+    }
+
+    const fs::path& path() const { return m_path; }
+
+private:
+    fs::path m_path;
+};
+
+bool isSafePackagePath(const fs::path& relative)
+{
+    if (relative.empty() || relative.is_absolute()) return false;
+    for (const fs::path& component : relative) {
+        const std::string value = path_to_utf8(component);
+        if (value.empty() || value == "." || value == ".." ||
+            value.back() == '.' || value.back() == ' ') return false;
+        for (const unsigned char character : value) {
+            if (character < 0x20 || character == '<' || character == '>' ||
+                character == '"' || character == '|' || character == '?' ||
+                character == '*' || character == ':') return false;
+        }
+
+        std::string deviceName = value.substr(0, value.find('.'));
+        while (!deviceName.empty() && (deviceName.back() == '.' || deviceName.back() == ' ')) {
+            deviceName.pop_back();
+        }
+        std::transform(deviceName.begin(), deviceName.end(), deviceName.begin(),
+                       [](unsigned char character) {
+                           return static_cast<char>(std::toupper(character));
+                       });
+        if (deviceName == "CON" || deviceName == "PRN" || deviceName == "AUX" ||
+            deviceName == "NUL" || deviceName == "CONIN$" || deviceName == "CONOUT$") return false;
+        if (deviceName.size() == 4 &&
+            (deviceName.compare(0, 3, "COM") == 0 || deviceName.compare(0, 3, "LPT") == 0) &&
+            deviceName[3] >= '1' && deviceName[3] <= '9') return false;
+    }
+    return true;
+}
 
 void appendU32(std::string& output, std::uint32_t value)
 {
@@ -287,12 +338,23 @@ bool DragInformation::unpackFilePackage(const std::string& package,
     if (!isFilePackage(package) || destination.empty() || package.size() > kMaxFilePackageSize) {
         return false;
     }
+
+    struct Entry {
+        fs::path relative;
+        std::size_t contentOffset;
+        std::size_t contentSize;
+        fs::path root;
+    };
+
     std::size_t offset = sizeof(kFilePackageMagic);
     std::uint32_t count = 0;
     if (!readU32(package, offset, count) || count == 0 || count > kMaxFileCount) return false;
 
-    fileList.clear();
+    const fs::path destinationPath = path_from_utf8(destination);
+    std::vector<Entry> entries;
+    entries.reserve(count);
     std::vector<std::string> publishedRoots;
+    std::set<std::string> relativeNames;
     for (std::uint32_t index = 0; index < count; ++index) {
         std::uint32_t nameSize = 0;
         std::uint64_t contentSize = 0;
@@ -301,33 +363,87 @@ bool DragInformation::unpackFilePackage(const std::string& package,
             offset + nameSize > package.size()) return false;
         const std::string name = package.substr(offset, nameSize);
         offset += nameSize;
+        if (name.find('\\') != std::string::npos) return false;
         const fs::path relative = path_from_utf8(name);
-        if (relative.empty() || relative.is_absolute() || contentSize > package.size() - offset) return false;
-        for (const fs::path& component : relative) {
-            const std::string value = path_to_utf8(component);
-            if (value.empty() || value == "." || value == "..") return false;
+        if (!isSafePackagePath(relative) || contentSize > package.size() - offset) return false;
+        std::string duplicateKey = name;
+        std::transform(duplicateKey.begin(), duplicateKey.end(), duplicateKey.begin(),
+                       [](unsigned char character) {
+                           return static_cast<char>(std::tolower(character));
+                       });
+        if (!relativeNames.insert(duplicateKey).second) return false;
+        const fs::path root = *relative.begin();
+        const std::string rootName = path_to_utf8(root);
+        if (std::find(publishedRoots.begin(), publishedRoots.end(), rootName) == publishedRoots.end()) {
+            publishedRoots.push_back(rootName);
         }
-        const fs::path target = path_from_utf8(destination) / relative;
-        std::error_code error;
-        fs::create_directories(target.parent_path(), error);
-        if (error) return false;
-        const std::string path = path_to_utf8(target);
-        std::fstream file;
-        open_utf8_path(file, target, std::ios::out | std::ios::binary | std::ios::trunc);
-        if (!file.is_open()) return false;
-        file.write(package.data() + offset, static_cast<std::streamsize>(contentSize));
-        file.close();
-        if (!file) return false;
-        const fs::path root = path_from_utf8(destination) / *relative.begin();
-        const std::string rootPath = path_to_utf8(root);
-        if (std::find(publishedRoots.begin(), publishedRoots.end(), rootPath) == publishedRoots.end()) {
-            if (!fileList.empty()) fileList.push_back('\n');
-            fileList += rootPath;
-            publishedRoots.push_back(rootPath);
-        }
+        entries.push_back({relative, offset, static_cast<std::size_t>(contentSize), root});
         offset += static_cast<std::size_t>(contentSize);
     }
-    return offset == package.size();
+    if (offset != package.size()) return false;
+
+    // Validate the complete package before writing anything. Stage all files
+    // under the destination, then publish only complete top-level roots.
+    std::error_code error;
+    fs::create_directories(destinationPath, error);
+    if (error) return false;
+    for (const std::string& rootName : publishedRoots) {
+        const fs::path target = destinationPath / path_from_utf8(rootName);
+        const fs::file_status status = fs::symlink_status(target, error);
+        if (error && error != std::errc::no_such_file_or_directory) return false;
+        error.clear();
+        if (fs::exists(status) || fs::is_symlink(status)) return false;
+    }
+
+    fs::path stagingPath;
+    bool stagingCreated = false;
+    for (int attempt = 0; attempt < 32 && !stagingCreated; ++attempt) {
+        const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        const auto sequence = g_stagingSequence.fetch_add(1, std::memory_order_relaxed);
+        stagingPath = destinationPath /
+            path_from_utf8(".inputleap-staging-" + std::to_string(stamp) + "-" + std::to_string(sequence));
+        stagingCreated = fs::create_directory(stagingPath, error);
+        if (error && error != std::errc::file_exists) return false;
+        error.clear();
+    }
+    if (!stagingCreated) return false;
+    StagingDirectory staging(stagingPath);
+
+    for (const Entry& entry : entries) {
+        const fs::path stagedFile = staging.path() / entry.relative;
+        fs::create_directories(stagedFile.parent_path(), error);
+        if (error) return false;
+        std::ofstream file;
+        open_utf8_path(file, stagedFile, std::ios::out | std::ios::binary | std::ios::trunc);
+        if (!file.is_open()) return false;
+        file.write(package.data() + entry.contentOffset,
+                   static_cast<std::streamsize>(entry.contentSize));
+        file.close();
+        if (!file) return false;
+    }
+
+    std::vector<fs::path> publishedPaths;
+    for (const std::string& rootName : publishedRoots) {
+        const fs::path stagedRoot = staging.path() / path_from_utf8(rootName);
+        const fs::path targetRoot = destinationPath / path_from_utf8(rootName);
+        fs::rename(stagedRoot, targetRoot, error);
+        if (error) {
+            for (const fs::path& published : publishedPaths) {
+                std::error_code ignored;
+                const fs::path stagedRootPath = staging.path() / published.filename();
+                fs::rename(published, stagedRootPath, ignored);
+            }
+            return false;
+        }
+        publishedPaths.push_back(targetRoot);
+    }
+
+    fileList.clear();
+    for (const fs::path& published : publishedPaths) {
+        if (!fileList.empty()) fileList.push_back('\n');
+        fileList += path_to_utf8(published);
+    }
+    return true;
 }
 
 bool DragInformation::isFileValid(std::string filename)

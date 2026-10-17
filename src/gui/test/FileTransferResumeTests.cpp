@@ -44,6 +44,21 @@ TEST(FileTransferResumeTests, RejectsWrongPeerOrKeyAndCorruption)
     EXPECT_FALSE(FileTransferResume::decodeManifest(QByteArray(70*1024,'x'),QByteArray(32,'k'),original.peerUuid).has_value());
 }
 
+TEST(FileTransferResumeTests, DerivesIndependentKeysForDistinctContexts)
+{
+    const QByteArray sessionKey(32, 'k');
+    const QByteArray tlsKey = FileTransferResume::deriveContextKey(sessionKey, "tls-psk-v1");
+    const QByteArray manifestKey = FileTransferResume::deriveContextKey(sessionKey, "manifest-v1");
+
+    ASSERT_EQ(tlsKey.size(), 32);
+    ASSERT_EQ(manifestKey.size(), 32);
+    EXPECT_EQ(tlsKey, FileTransferResume::deriveContextKey(sessionKey, "tls-psk-v1"));
+    EXPECT_NE(tlsKey, manifestKey);
+    EXPECT_NE(tlsKey, sessionKey);
+    EXPECT_TRUE(FileTransferResume::deriveContextKey(QByteArray(31, 'k'), "tls-psk-v1").isEmpty());
+    EXPECT_TRUE(FileTransferResume::deriveContextKey(sessionKey, {}).isEmpty());
+}
+
 TEST(FileTransferResumeTests, AuthenticatesRecoveryPathAgainstTagSubstitution)
 {
     auto original=manifest();

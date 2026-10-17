@@ -58,7 +58,8 @@ bool sendItemsAndProcessEvents(FileTransferService& receiver,
                                QString* errorMessage = nullptr,
                                FileTransferService::ProgressCallback progressCallback = {},
                                FileTransferService::CancelCallback cancelCallback = {},
-                               const QUuid& localUuid = {}, const QByteArray& psk = {})
+                               const QUuid& localUuid = {}, const QByteArray& psk = {},
+                               int timeoutMs = 10000)
 {
     std::atomic_bool complete = false;
     bool sent = false;
@@ -68,7 +69,7 @@ bool sendItemsAndProcessEvents(FileTransferService& receiver,
             std::move(progressCallback), std::move(cancelCallback), {}, localUuid, psk, true);
         complete.store(true);
     });
-    const bool completedInTime = waitFor(complete);
+    const bool completedInTime = waitFor(complete, timeoutMs);
     sender.join();
     return completedInTime && sent;
 }
@@ -148,11 +149,13 @@ QByteArray sendAuthenticatedV5Blocking(FileTransferService& receiver, const QUui
                                        quint32 itemIndex=0,quint32 itemCount=1)
 {
     QSslSocket socket;
+    const QByteArray tlsPsk = FileTransferResume::deriveContextKey(psk, "tls-psk-v1");
+    if (tlsPsk.size() != 32) return {};
     QObject::connect(&socket, &QSslSocket::preSharedKeyAuthenticationRequired, &socket,
-                     [tlsPeer, psk](QSslPreSharedKeyAuthenticator* auth) {
+                     [tlsPeer, tlsPsk](QSslPreSharedKeyAuthenticator* auth) {
                          auth->setIdentity(QByteArray("inputleap-file-transfer:") +
                                            tlsPeer.toString(QUuid::WithoutBraces).toLower().toLatin1());
-                         auth->setPreSharedKey(psk);
+                         auth->setPreSharedKey(tlsPsk);
                      });
     QSslConfiguration config = socket.sslConfiguration();
     config.setProtocol(QSsl::TlsV1_2);
@@ -206,11 +209,13 @@ QByteArray sendAuthenticatedV4Blocking(FileTransferService& receiver,
                                        const QByteArray& payload)
 {
     QSslSocket socket;
+    const QByteArray tlsPsk = FileTransferResume::deriveContextKey(psk, "tls-psk-v1");
+    if (tlsPsk.size() != 32) return {};
     QObject::connect(&socket, &QSslSocket::preSharedKeyAuthenticationRequired, &socket,
-                     [tlsPeer, psk](QSslPreSharedKeyAuthenticator* auth) {
+                     [tlsPeer, tlsPsk](QSslPreSharedKeyAuthenticator* auth) {
         auth->setIdentity(QByteArray("inputleap-file-transfer:") +
                           tlsPeer.toString(QUuid::WithoutBraces).toLower().toLatin1());
-        auth->setPreSharedKey(psk);
+        auth->setPreSharedKey(tlsPsk);
     });
     QSslConfiguration config = socket.sslConfiguration();
     config.setProtocol(QSsl::TlsV1_2);
@@ -323,6 +328,29 @@ TEST(FileTransferServiceTests, FileReceivedCarriesAuthenticatedPeerUuid)
     EXPECT_NE(arguments.at(3).toUuid(), differentPeer);
     EXPECT_FALSE(arguments.at(3).toUuid().isNull());
     EXPECT_FALSE(arguments.at(4).toByteArray().isEmpty());
+}
+
+TEST(FileTransferServiceTests, RejectsWrongPerDeviceTlsPskBeforeFileSideEffects)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const QString source = createFile(directory, QStringLiteral("source.txt"), QByteArrayLiteral("must not arrive"));
+    ASSERT_FALSE(source.isEmpty());
+    const QString receiveDirectory = directory.filePath(QStringLiteral("received"));
+    const QUuid peerUuid = QUuid::createUuid();
+    const QByteArray expectedKey(32, 'k');
+    const QByteArray wrongKey(32, 'x');
+
+    FileTransferService receiver;
+    receiver.setReceivePermissionCallback([](const QUuid&) { return true; });
+    receiver.setReceiveDirectory(receiveDirectory);
+    receiver.setDevicePreSharedKey(peerUuid, expectedKey);
+    ASSERT_TRUE(receiver.startListening(0));
+
+    QString error;
+    EXPECT_FALSE(sendItemsAndProcessEvents(receiver,
+        {{source, QStringLiteral("source.txt")}}, &error, {}, {}, peerUuid, wrongKey));
+    EXPECT_FALSE(QFile::exists(QDir(receiveDirectory).filePath(QStringLiteral("source.txt"))));
 }
 
 TEST(FileTransferServiceTests, KeepsExistingDestinationAndAddsCollisionSuffix)
@@ -686,7 +714,8 @@ TEST(FileTransferServiceTests, TransfersManySmallFilesInOneServiceRun)
     receiver.setReceivePermissionCallback([](const QUuid& uuid) { return !uuid.isNull(); });
     receiver.setDevicePreSharedKey(peerUuid, psk); receiver.setReceiveDirectory(directory.filePath("received"));
     QString error; ASSERT_TRUE(receiver.startListening(0, &error)) << error.toStdString();
-    ASSERT_TRUE(sendItemsAndProcessEvents(receiver, items, &error, {}, {}, peerUuid, psk)) << error.toStdString();
+    ASSERT_TRUE(sendItemsAndProcessEvents(receiver, items, &error, {}, {}, peerUuid, psk, 120000))
+        << error.toStdString();
     for (int i = 0; i < 48; ++i)
         EXPECT_TRUE(QFile::exists(directory.filePath(QStringLiteral("received/batch/small-%1.txt").arg(i))));
 }

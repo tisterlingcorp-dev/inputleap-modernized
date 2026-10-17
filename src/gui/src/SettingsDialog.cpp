@@ -403,6 +403,17 @@ SettingsDialog::SettingsDialog(QWidget* parent, AppConfig& config,
     ui_->checkbox_require_client_certificate->setChecked(app_config_.getRequireClientCertificate());
 
 #if defined(Q_OS_WIN)
+    ui_->m_pCheckBoxEnableCrypto->setChecked(true);
+    ui_->m_pCheckBoxEnableCrypto->setEnabled(false);
+    ui_->m_pCheckBoxEnableCrypto->setToolTip(
+        tr("A proteção TLS é obrigatória nesta versão do Windows."));
+    ui_->checkbox_require_client_certificate->setChecked(true);
+    ui_->checkbox_require_client_certificate->setEnabled(false);
+    ui_->checkbox_require_client_certificate->setToolTip(
+        tr("A autenticação por certificado do cliente é obrigatória nesta versão do Windows."));
+#endif
+
+#if defined(Q_OS_WIN)
     ui_->m_pComboElevate->setCurrentIndex(static_cast<int>(app_config_.elevateMode()));
 #else
     // elevate checkbox is only useful on ms windows.

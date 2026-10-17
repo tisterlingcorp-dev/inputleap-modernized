@@ -22,6 +22,7 @@
 #include "net/TCPSocket.h"
 #include "net/XSocket.h"
 #include "io/filesystem.h"
+#include <atomic>
 #include <mutex>
 
 namespace inputleap {
@@ -93,7 +94,7 @@ private:
     std::mutex ssl_mutex_;
 
     std::unique_ptr<Ssl> m_ssl;
-    bool m_secureReady;
+    std::atomic<bool> m_secureReady;
     bool m_fatal;
     ConnectionSecurityLevel security_level_ = ConnectionSecurityLevel::ENCRYPTED;
 

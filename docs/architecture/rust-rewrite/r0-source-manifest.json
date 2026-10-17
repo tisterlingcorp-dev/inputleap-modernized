@@ -7,7 +7,7 @@
   "snapshotKind": "dirty-working-tree-content-manifest",
   "branchAtFreeze": "fix/tls-rejected-socket-cleanup",
   "pathCount": 79,
-  "contentDigest": "621cf1ff0f3db4e3211b83ee99d03f1c7f59c58eea14467e7843cb29a634cf6b",
+  "contentDigest": "d03b59765d3689e46ddcbb5dd8a4de4c194d50dac9d7a92c10a05cc544954845",
   "files": [
     {
       "path": ".gitignore",
@@ -29,9 +29,9 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 16566,
+      "size": 17678,
       "hashMode": "canonical-lf",
-      "sha256": "a39a5f8c26aa26270a4ec2d301a1e57faf85a31f9920d93572592ca4c861a0c0"
+      "sha256": "8d891a849e1bf77e540e3d504d0d09cb99cd8a22d32212484cf92558a8fe214c"
     },
     {
       "path": "cmake/ProjectOptions.cmake",
@@ -53,15 +53,15 @@
     },
     {
       "path": "src/gui/CMakeLists.txt",
-      "size": 37570,
+      "size": 38633,
       "hashMode": "canonical-lf",
-      "sha256": "5183d8ac8d64bb175b75f1fea807b7bc42f5e6365ae1b22d8e53d765cdd9923b"
+      "sha256": "6d1692933f928a7a63178ac9c97dafb7d4469c34e938a80cf422f18db5c47bd1"
     },
     {
       "path": "src/gui/src/FileTransferService.cpp",
-      "size": 102658,
+      "size": 103456,
       "hashMode": "canonical-lf",
-      "sha256": "1dc772db0bda6b7753316ed4c2749bcc6b105eb88be401bc65c04a5e51cbaede"
+      "sha256": "0cfa02b06ec1e58ae46089b9ba621df6d4b1c1b3706e5d56b06962bf04287742"
     },
     {
       "path": "src/gui/src/FileTransferService.h",

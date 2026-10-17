@@ -6,25 +6,27 @@
 # python -m aqt install-qt windows desktop 6.4.2 win64_msvc2019_64 -O C:\Qt
 # Note that Powershell may need to be restarted in order to changes to take effect.
 
-$bonjour_path = '.\deps\BonjourSDKLike'
-
+$mdns_revision = 'f783506af3836b39b83fc14115bc2728a49db4b2'
+$mdns_source_path = Join-Path (Get-Location).Path 'deps\mDNSResponder-pinned'
+$bonjour_path = Join-Path (Get-Location).Path 'deps\DnsSdSdk'
 New-Item -Force -ItemType Directory -Path .\deps | Out-Null
-Invoke-WebRequest 'https://github.com/nelsonjchen/mDNSResponder/releases/download/v2019.05.08.1/x64_RelWithDebInfo.zip' -OutFile 'deps\BonjourSDKLike.zip' ;
-$expected_bonjour_sha256 = 'aad489258d047e396a43efff4270571c82e7da5d33cba1710b784b66fd4011f9';
-$actual_bonjour_sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath 'deps\BonjourSDKLike.zip').Hash.ToLowerInvariant();
-if ($actual_bonjour_sha256 -ne $expected_bonjour_sha256) {
-    Remove-Item -Force 'deps\BonjourSDKLike.zip';
-    throw 'Bonjour SDK-like archive checksum verification failed';
+if (-not (Test-Path -LiteralPath $mdns_source_path)) {
+    git init $mdns_source_path
+    if ($LASTEXITCODE -ne 0) { throw 'Could not initialize mDNSResponder source checkout' }
+    git -C $mdns_source_path remote add origin https://github.com/apple-oss-distributions/mDNSResponder.git
+    if ($LASTEXITCODE -ne 0) { throw 'Could not configure mDNSResponder source remote' }
+    git -C $mdns_source_path fetch --depth 1 origin $mdns_revision
+    if ($LASTEXITCODE -ne 0) { throw 'Could not fetch the pinned mDNSResponder source revision' }
+    git -C $mdns_source_path checkout --detach FETCH_HEAD
+    if ($LASTEXITCODE -ne 0) { throw 'Could not check out the pinned mDNSResponder source revision' }
 }
-if (Test-Path -LiteralPath $bonjour_path) {
-    Remove-Item -LiteralPath $bonjour_path -Recurse
+$actual_mdns_revision = (& git -C $mdns_source_path rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $actual_mdns_revision -ne $mdns_revision) {
+    throw "Existing mDNSResponder checkout is not the required immutable revision $mdns_revision"
 }
-
-# CMake configuration expects this to be absolute path
-$bonjour_path = -join((Get-Location).Path, '\', $bonjour_path);
-
-Expand-Archive .\deps\BonjourSDKLike.zip -DestinationPath .\deps\BonjourSDKLike
-Remove-Item deps\BonjourSDKLike.zip
+& (Join-Path $PSScriptRoot 'scripts\windows\build_mdns_responder.ps1') `
+    -SourceDirectory $mdns_source_path -OutputDirectory $bonjour_path
+if ($LASTEXITCODE -ne 0) { throw 'Could not build the pinned mDNSResponder Windows runtime' }
 
 $vs_version = '';
 $vs_path = '';

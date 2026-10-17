@@ -24,13 +24,16 @@ O artefato Inno Setup deve estar em `build\installer-inno\bin\InputLeapSetup-*.e
 - [ ] Confirmar que o gate Build tests no SHA candidato concluiu com sucesso no job Windows Qt6.
 - [ ] Executar CTest Release com o PATH do Qt configurado.
 - [ ] Executar os testes funcionais de transferência, IPC, descoberta e atualização.
-- [ ] Em VM Windows 10 e Windows 11 limpas, validar instalação, reinstalação/upgrade, reparo, desinstalação e rollback da versão anterior; confirmar serviço, firewall e preservação de `%ProgramData%\InputLeap` e `%LOCALAPPDATA%\InputLeap`.
+- [ ] Validar o canal TLS legado 24800: certificado ausente, ASN.1/data inválida, ainda não válido, expirado, fingerprint não confiável e revogado devem falhar antes de qualquer evento de input; certificado vigente e explicitamente confiável deve conectar. Confirmar log acionável e que rotação de identidade exige novo pareamento explícito (nunca regenerar silenciosamente e invalidar peers existentes).
+- [ ] Em VM Windows 10 e Windows 11 limpas, validar instalação, reinstalação/upgrade, reparo, desinstalação e rollback da versão anterior; confirmar serviço, firewall e preservação de `%ProgramData%\InputLeap` e `%LOCALAPPDATA%\InputLeap`. O candidato atual inclui runtime DNS-SD compilado da revisão mDNSResponder pinada (DLL e serviço `mDNSResponder.exe`); validar discovery com esse pacote e a rota manual sem DNS-SD. Não incluir o instalador proprietário Apple Bonjour. A distribuição pública do runtime compilado continua bloqueada até revisão/aprovação legal e de redistribuição dos arquivos e do nome de serviço.
 - [ ] Registrar logs fora de `out/` quando o script de limpeza puder remover os artefatos.
 - [ ] Reexecutar os gates depois de qualquer alteração no código-fonte congelado.
 
 ## 3. Pacote e hash
 
 - [ ] Gerar o instalador Inno em ambiente de release.
+- [ ] Gerar e arquivar os cinco SBOMs CycloneDX do workflow Release: pacote Windows instalado, workspace Rust, Tauri, agente e servidor. O Syft deve analisar diretórios contendo manifests/lockfiles; confirmar PURLs e relações transitivas nos quatro inventários Rust e revisar manualmente componentes redistribuídos que não sejam descobertos por manifests (incluindo Qt, OpenSSL, Bonjour/DNS-SD e DLLs do pacote).
+- [ ] Confirmar que cada DLL/plugin Qt do `licenses/Qt/DEPLOYED-PAYLOAD.json` aparece como componente `file` no SBOM Windows, com SHA-256 igual ao manifesto. Este é um gate de cobertura/integridade do inventário, não uma atribuição automática de licença nem aprovação legal.
 - [ ] Calcular SHA-256 a partir do pacote final, depois de todas as cópias.
 - [ ] Confirmar tamanho, caminho e identidade do arquivo por descriptor/handle.
 - [ ] Comparar versão, URL, tamanho e hash por canal independente.
@@ -59,4 +62,4 @@ Os comandos detalhados de custódia e montagem estão em `doc/secure-update-sign
 
 ## 6. Estado atual conhecido
 
-O workflow Windows inclui um smoke test de instalação, reinstalação, inicialização do serviço, desinstalação e preservação de um marcador em `%ProgramData%`. Isso não substitui a validação em VM limpa Windows 10/11, os cenários explícitos de reparo/rollback, o piloto em duas máquinas, nem revisão de licenças/SBOM/hash/assinatura. Sem evidência desses gates, o resultado correto é **pendente**, não um PASS parcial apresentado como release.
+O workflow Windows inclui um smoke de instalação, reinstalação/repair, início do serviço, desinstalação e preservação de um marcador em `%ProgramData%`. O candidato atual instala o runtime DNS-SD compilado de mDNSResponder; o smoke confirma DLL, serviço e avisos/proveniência e rejeita os instaladores proprietários `Bonjour.msi`/`Bonjour64.msi`. Isso é apenas um gate de conteúdo e ciclo de vida, não valida discovery real nem a rota manual sem DNS-SD, e tampouco aprova legalmente a redistribuição do runtime compilado. Quando `upgrade_from_run_id` é informado, valida também instalação do baseline, upgrade para o candidato (incluindo mudança do hash do daemon), reinstalação do candidato, desinstalação e rollback reinstalando o baseline. Esses testes automatizados não simulam interrupção/falha no meio da atualização e não substituem validação em VM limpa Windows 10/11, reparo via interface do Windows Installer, piloto em duas máquinas, nem revisão manual de licenças e cobertura do SBOM. Em particular, a geração do SBOM do diretório instalado não resolve a proveniência/licença dos binários DNS-SD nem prova que todas as DLLs redistribuídas foram catalogadas. Também não substitui assinatura Authenticode. Sem evidência desses gates, o resultado correto é **pendente**, não um PASS parcial apresentado como release.

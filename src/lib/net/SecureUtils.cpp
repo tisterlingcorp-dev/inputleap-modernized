@@ -53,9 +53,18 @@
 #include <openssl/x509v3.h>
 #include <openssl/pem.h>
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include <Aclapi.h>
+#endif
 
 namespace inputleap {
 
@@ -135,6 +144,19 @@ FingerprintData get_ssl_cert_fingerprint(X509* cert, FingerprintType type)
     return {fingerprint_type_to_string(type), digest_vec};
 }
 
+bool is_ssl_certificate_current(X509* cert)
+{
+    if (cert == nullptr) {
+        return false;
+    }
+
+    const int not_before = X509_cmp_current_time(X509_get0_notBefore(cert));
+    const int not_after = X509_cmp_current_time(X509_get0_notAfter(cert));
+
+    // X509_cmp_current_time returns zero when the ASN.1 time cannot be parsed.
+    return not_before < 0 && not_after > 0;
+}
+
 FingerprintData get_pem_file_cert_fingerprint(const std::string& path, FingerprintType type)
 {
     auto fp = fopen_utf8_path(path, "r");
@@ -154,6 +176,10 @@ FingerprintData get_pem_file_cert_fingerprint(const std::string& path, Fingerpri
 
 void generate_pem_self_signed_cert(const std::string& path)
 {
+    if (!secure_private_file_permissions(path)) {
+        throw std::runtime_error("Could not secure private certificate file permissions");
+    }
+
     auto expiration_days = 365;
     constexpr unsigned key_bits = 2048;
 
@@ -209,6 +235,116 @@ void generate_pem_self_signed_cert(const std::string& path)
 
     PEM_write_PrivateKey(fp, private_key, nullptr, nullptr, 0, nullptr, nullptr);
     PEM_write_X509(fp, cert);
+}
+
+bool secure_private_file_permissions(const std::string& path)
+{
+#if defined(_WIN32)
+    const fs::path filePath = path_from_utf8(path);
+    if (filePath.empty()) {
+        return false;
+    }
+
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
+        return false;
+    }
+    const auto closeToken = finally([token]() { CloseHandle(token); });
+
+    DWORD tokenUserSize = 0;
+    GetTokenInformation(token, TokenUser, nullptr, 0, &tokenUserSize);
+    if (tokenUserSize == 0) {
+        return false;
+    }
+    std::vector<std::uint8_t> tokenUserBuffer(tokenUserSize);
+    if (!GetTokenInformation(token, TokenUser, tokenUserBuffer.data(), tokenUserSize,
+                             &tokenUserSize)) {
+        return false;
+    }
+    const PSID currentUserSid = reinterpret_cast<TOKEN_USER*>(tokenUserBuffer.data())->User.Sid;
+
+    std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> systemSidBuffer{};
+    DWORD systemSidSize = static_cast<DWORD>(systemSidBuffer.size());
+    if (!CreateWellKnownSid(WinLocalSystemSid, nullptr, systemSidBuffer.data(), &systemSidSize)) {
+        return false;
+    }
+
+    std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> administratorsSidBuffer{};
+    DWORD administratorsSidSize = static_cast<DWORD>(administratorsSidBuffer.size());
+    if (!CreateWellKnownSid(WinBuiltinAdministratorsSid, nullptr,
+                            administratorsSidBuffer.data(), &administratorsSidSize)) {
+        return false;
+    }
+
+    EXPLICIT_ACCESSW access[3]{};
+    const auto setAccess = [](EXPLICIT_ACCESSW& entry, PSID sid, TRUSTEE_TYPE type) {
+        entry.grfAccessPermissions = FILE_ALL_ACCESS;
+        entry.grfAccessMode = SET_ACCESS;
+        entry.grfInheritance = NO_INHERITANCE;
+        BuildTrusteeWithSidW(&entry.Trustee, sid);
+        entry.Trustee.TrusteeType = type;
+    };
+    setAccess(access[0], currentUserSid, TRUSTEE_IS_USER);
+    setAccess(access[1], systemSidBuffer.data(), TRUSTEE_IS_USER);
+    setAccess(access[2], administratorsSidBuffer.data(), TRUSTEE_IS_GROUP);
+
+    PACL restrictedDacl = nullptr;
+    const DWORD daclResult = SetEntriesInAclW(3, access, nullptr, &restrictedDacl);
+    if (daclResult != ERROR_SUCCESS || restrictedDacl == nullptr) {
+        if (restrictedDacl != nullptr) {
+            LocalFree(restrictedDacl);
+        }
+        return false;
+    }
+    const auto freeDacl = finally([restrictedDacl]() { LocalFree(restrictedDacl); });
+
+    SECURITY_DESCRIPTOR descriptor{};
+    if (!InitializeSecurityDescriptor(&descriptor, SECURITY_DESCRIPTOR_REVISION) ||
+        !SetSecurityDescriptorDacl(&descriptor, TRUE, restrictedDacl, FALSE) ||
+        !SetSecurityDescriptorControl(&descriptor, SE_DACL_PROTECTED, SE_DACL_PROTECTED)) {
+        return false;
+    }
+    SECURITY_ATTRIBUTES securityAttributes{};
+    securityAttributes.nLength = sizeof(securityAttributes);
+    securityAttributes.lpSecurityDescriptor = &descriptor;
+
+    constexpr DWORD shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    constexpr DWORD fileFlags = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT;
+    constexpr DWORD fileAccess = READ_CONTROL | WRITE_DAC | FILE_READ_ATTRIBUTES;
+    HANDLE file = CreateFileW(filePath.c_str(), fileAccess, shareMode, nullptr,
+                              OPEN_EXISTING, fileFlags, nullptr);
+    if (file == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND) {
+        file = CreateFileW(filePath.c_str(), fileAccess, shareMode,
+                           &securityAttributes, CREATE_NEW, fileFlags, nullptr);
+        if (file == INVALID_HANDLE_VALUE) {
+            const DWORD createError = GetLastError();
+            if (createError == ERROR_FILE_EXISTS || createError == ERROR_ALREADY_EXISTS) {
+                file = CreateFileW(filePath.c_str(), fileAccess, shareMode, nullptr,
+                                   OPEN_EXISTING, fileFlags, nullptr);
+            }
+        }
+    }
+    if (file == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+    const auto closeFile = finally([file]() { CloseHandle(file); });
+
+    BY_HANDLE_FILE_INFORMATION fileInfo{};
+    if (!GetFileInformationByHandle(file, &fileInfo) ||
+        (fileInfo.dwFileAttributes &
+         (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) != 0) {
+        return false;
+    }
+
+    const DWORD aclResult = SetSecurityInfo(
+        file, SE_FILE_OBJECT,
+        DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+        nullptr, nullptr, restrictedDacl, nullptr);
+    return aclResult == ERROR_SUCCESS;
+#else
+    (void)path;
+    return true;
+#endif
 }
 
 /*

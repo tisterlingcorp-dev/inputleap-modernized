@@ -61,6 +61,9 @@ public:
     struct DecodeResult {
         Error error = Error::InvalidType;
         std::optional<ConfigurationPortablePreferences> preferences;
+        // Transient import metadata: true when the encoded package requested
+        // weaker transport security than the Windows product policy allows.
+        bool requestsTransportSecurityDowngrade = false;
     };
 
     static QJsonObject encode(const ConfigurationPortablePreferences& preferences);

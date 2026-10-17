@@ -27,6 +27,7 @@
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
+#include <stdexcept>
 
 SslCertificate::SslCertificate(QObject *parent) :
     QObject(parent)
@@ -39,15 +40,20 @@ SslCertificate::SslCertificate(QObject *parent) :
 void SslCertificate::generateCertificate()
 {
     auto cert_path = inputleap::DataDirectories::ssl_certificate_path();
+    auto cert_dir = cert_path.parent_path();
+    if (!inputleap::fs::exists(cert_dir)) {
+        inputleap::fs::create_directories(cert_dir);
+    }
+
+    const std::string cert_path_utf8 = inputleap::path_to_utf8(cert_path);
+    if (!inputleap::secure_private_file_permissions(cert_path_utf8)) {
+        Q_EMIT error(tr("Could not secure private certificate file permissions."));
+        return;
+    }
 
     if (!inputleap::fs::exists(cert_path) || !is_certificate_valid(cert_path)) {
         try {
-            auto cert_dir = cert_path.parent_path();
-            if (!inputleap::fs::exists(cert_dir)) {
-                inputleap::fs::create_directories(cert_dir);
-            }
-
-            inputleap::generate_pem_self_signed_cert(inputleap::path_to_utf8(cert_path));
+            inputleap::generate_pem_self_signed_cert(cert_path_utf8);
         }  catch (const std::exception& e) {
             Q_EMIT error(QString("SSL tool failed: %1").arg(e.what()));
             return;
@@ -56,12 +62,14 @@ void SslCertificate::generateCertificate()
         Q_EMIT info(tr("SSL certificate generated."));
     }
 
-    generate_fingerprint(cert_path);
+    if (!generate_fingerprint(cert_path)) {
+        return;
+    }
 
     Q_EMIT generateFinished();
 }
 
-void SslCertificate::generate_fingerprint(const inputleap::fs::path& cert_path)
+bool SslCertificate::generate_fingerprint(const inputleap::fs::path& cert_path)
 {
     try {
         auto local_path = inputleap::DataDirectories::local_ssl_fingerprints_path();
@@ -76,11 +84,15 @@ void SslCertificate::generate_fingerprint(const inputleap::fs::path& cert_path)
                                                               inputleap::FingerprintType::SHA1));
         db.add_trusted(inputleap::get_pem_file_cert_fingerprint(cert_path_utf8,
                                                               inputleap::FingerprintType::SHA256));
-        db.write(local_path);
+        if (!db.write(local_path)) {
+            throw std::runtime_error("failed to persist local SSL fingerprints");
+        }
 
         Q_EMIT info(tr("SSL fingerprint generated."));
+        return true;
     } catch (const std::exception& e) {
         Q_EMIT error(tr("Failed to find SSL fingerprint.") + e.what());
+        return false;
     }
 }
 

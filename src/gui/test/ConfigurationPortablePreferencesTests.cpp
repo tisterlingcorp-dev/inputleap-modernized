@@ -24,8 +24,16 @@ TEST(ConfigurationPortablePreferencesTests, FactoryPreservesAllInvariants)
         24800, 7, QStringLiteral("pt-BR"), true, false, false, false, false));
     EXPECT_FALSE(ConfigurationPortablePreferences::create(
         24800, 3, QStringLiteral("en-00"), true, false, false, false, false));
-    EXPECT_FALSE(ConfigurationPortablePreferences::create(
-        24800, 3, QStringLiteral("pt-BR"), false, true, false, false, false));
+    const auto disabledCryptoWithClientCertificate =
+        ConfigurationPortablePreferences::create(
+            24800, 3, QStringLiteral("pt-BR"), false, true, false, false, false);
+#if defined(Q_OS_WIN)
+    ASSERT_TRUE(disabledCryptoWithClientCertificate.has_value());
+    EXPECT_TRUE(disabledCryptoWithClientCertificate->cryptoEnabled());
+    EXPECT_TRUE(disabledCryptoWithClientCertificate->requireClientCertificate());
+#else
+    EXPECT_FALSE(disabledCryptoWithClientCertificate.has_value());
+#endif
 }
 
 TEST(ConfigurationPortablePreferencesTests, MoveConstructionAndAssignmentPreserveSourceInvariants)
@@ -121,7 +129,30 @@ TEST(ConfigurationPortablePreferencesTests, RejectsOutOfRangeAndInconsistentValu
     QJsonObject inconsistent = valid;
     inconsistent.insert(QStringLiteral("cryptoEnabled"), false);
     inconsistent.insert(QStringLiteral("requireClientCertificate"), true);
+#if defined(Q_OS_WIN)
+    const auto decodedWindows = Codec::decode(inconsistent);
+    ASSERT_EQ(decodedWindows.error, Error::None);
+    ASSERT_TRUE(decodedWindows.preferences.has_value());
+    EXPECT_TRUE(decodedWindows.preferences->cryptoEnabled());
+    EXPECT_TRUE(decodedWindows.preferences->requireClientCertificate());
+#else
     EXPECT_EQ(Codec::decode(inconsistent).error, Error::InconsistentSecurity);
+#endif
+
+    QJsonObject disabledEncryption = valid;
+    disabledEncryption.insert(QStringLiteral("cryptoEnabled"), false);
+    disabledEncryption.insert(QStringLiteral("requireClientCertificate"), false);
+    const auto decodedDisabledEncryption = Codec::decode(disabledEncryption);
+    ASSERT_EQ(decodedDisabledEncryption.error, Error::None);
+    ASSERT_TRUE(decodedDisabledEncryption.preferences.has_value());
+#if defined(Q_OS_WIN)
+    EXPECT_TRUE(decodedDisabledEncryption.preferences->cryptoEnabled());
+    EXPECT_TRUE(decodedDisabledEncryption.preferences->requireClientCertificate());
+    EXPECT_TRUE(decodedDisabledEncryption.requestsTransportSecurityDowngrade);
+#else
+    EXPECT_TRUE(decodedDisabledEncryption.requestsTransportSecurityDowngrade);
+    EXPECT_FALSE(decodedDisabledEncryption.preferences->cryptoEnabled());
+#endif
 }
 
 } // namespace

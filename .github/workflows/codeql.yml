@@ -46,7 +46,7 @@ jobs:
         run: cmake --preset debug-tests
 
       - name: Build
-        run: cmake --build --preset debug-tests --parallel
+        run: cmake --build --preset debug-tests --parallel 2
 
       - name: Analyze
         uses: github/codeql-action/analyze@v4

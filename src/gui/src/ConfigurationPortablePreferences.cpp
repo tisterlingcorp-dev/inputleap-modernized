@@ -1,6 +1,7 @@
 /* InputLeap -- typed portable non-secret preferences. */
 #include "ConfigurationPortablePreferences.h"
 
+#include <QtGlobal>
 #include <QSet>
 #include <QStringList>
 
@@ -96,6 +97,10 @@ std::optional<ConfigurationPortablePreferences> ConfigurationPortablePreferences
     int port, int logLevel, const QString& language, bool cryptoEnabled,
     bool requireClientCertificate, bool autoHide, bool autoStart, bool minimizeToTray)
 {
+#if defined(Q_OS_WIN)
+    cryptoEnabled = true;
+    requireClientCertificate = true;
+#endif
     if (port < 1 || port > 65535 || logLevel < 0 || logLevel > 6 ||
         !SupportedLanguages.contains(language) ||
         (requireClientCertificate && !cryptoEnabled)) {
@@ -155,8 +160,18 @@ ConfigurationPortablePreferencesCodec::decode(const QJsonObject& object)
     if (!SupportedLanguages.contains(language))
         return {Error::InvalidValue, std::nullopt};
 
-    const bool cryptoEnabled = object.value(CryptoEnabledKey).toBool();
-    const bool requireClientCertificate = object.value(RequireClientCertificateKey).toBool();
+    const bool encodedCryptoEnabled = object.value(CryptoEnabledKey).toBool();
+    const bool encodedRequireClientCertificate =
+        object.value(RequireClientCertificateKey).toBool();
+    const bool requestsTransportSecurityDowngrade =
+        !encodedCryptoEnabled || !encodedRequireClientCertificate;
+#if defined(Q_OS_WIN)
+    constexpr bool cryptoEnabled = true;
+    constexpr bool requireClientCertificate = true;
+#else
+    const bool cryptoEnabled = encodedCryptoEnabled;
+    const bool requireClientCertificate = encodedRequireClientCertificate;
+#endif
     if (requireClientCertificate && !cryptoEnabled)
         return {Error::InconsistentSecurity, std::nullopt};
 
@@ -166,5 +181,5 @@ ConfigurationPortablePreferencesCodec::decode(const QJsonObject& object)
         object.value(MinimizeToTrayKey).toBool());
     if (!result)
         return {Error::InvalidValue, std::nullopt};
-    return {Error::None, std::move(result)};
+    return {Error::None, std::move(result), requestsTransportSecurityDowngrade};
 }

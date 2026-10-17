@@ -666,13 +666,12 @@ TEST(ConfigurationAppTargetTests, EarlyRecoveryRepairsPartialPublicStateBeforePr
         });
     const QJsonObject original = AppConfigSettingsJournal::capture(settings);
     QJsonObject candidate = original;
-    candidate.insert(QStringLiteral("cryptoEnabled"), false);
-    candidate.insert(QStringLiteral("requireClientCertificate"), false);
+    candidate.insert(QStringLiteral("port"), 0);
     std::optional<SensitiveBytes> candidateSecret;
     candidateSecret.emplace(QByteArrayLiteral("NEW-CODE"));
     AppConfigSettingsJournal journal(settings, store);
     ASSERT_TRUE(journal.begin(original, candidate, candidateSecret));
-    settings.setValue(QStringLiteral("cryptoEnabled"), false);
+    settings.setValue(QStringLiteral("port"), 0);
     settings.sync();
     ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
@@ -721,8 +720,13 @@ TEST(ConfigurationAppTargetTests, AppConfigLoadRecoversInterruptedSaveBeforeStri
     ASSERT_TRUE(journal.begin(original, candidate, candidateSecret));
     settings.setValue(QStringLiteral("cryptoEnabled"), false);
     settings.sync();
+#if defined(Q_OS_WIN)
+    ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+#else
     ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
+#endif
 
     AppConfig config(&settings, makeStore());
 
@@ -731,6 +735,44 @@ TEST(ConfigurationAppTargetTests, AppConfigLoadRecoversInterruptedSaveBeforeStri
               StartupSettingsPreflight::Status::Valid);
     EXPECT_TRUE(settings.value(QStringLiteral("cryptoEnabled")).toBool());
     EXPECT_TRUE(settings.value(QStringLiteral("requireClientCertificate")).toBool());
+}
+
+TEST(ConfigurationAppTargetTests, WindowsAppConfigMigratesDisabledCryptoPreferenceToEnabled)
+{
+#if defined(Q_OS_WIN)
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("crypto-migration.ini")),
+                       QSettings::IniFormat);
+    settings.setValue(QStringLiteral("cryptoEnabled"), false);
+    settings.setValue(QStringLiteral("requireClientCertificate"), false);
+    settings.sync();
+    ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+    QMap<QString, QByteArray> credentials;
+    SecureCredentialStore store(
+        [&credentials](const QString& key) -> std::optional<QByteArray> {
+            const auto found = credentials.constFind(key);
+            return found == credentials.cend() ? std::nullopt
+                                               : std::optional<QByteArray>(*found);
+        },
+        [&credentials](const QString& key, const QByteArray& value) {
+            credentials.insert(key, value); return true;
+        },
+        [&credentials](const QString& key) {
+            credentials.remove(key); return true;
+        });
+
+    AppConfig config(&settings, std::move(store));
+
+    EXPECT_FALSE(config.settingsLoadFailed());
+    EXPECT_TRUE(config.getCryptoEnabled());
+    EXPECT_TRUE(config.getRequireClientCertificate());
+    config.setCryptoEnabled(false);
+    config.setRequireClientCertificate(false);
+    EXPECT_TRUE(config.getCryptoEnabled());
+    EXPECT_TRUE(config.getRequireClientCertificate());
+#endif
 }
 
 TEST(ConfigurationAppTargetTests, StartupRecoveryOrchestratorRepairsBeforeStrictPreflight)
@@ -770,8 +812,13 @@ TEST(ConfigurationAppTargetTests, StartupRecoveryOrchestratorRepairsBeforeStrict
     ASSERT_TRUE(journal.begin(original, candidate, candidateSecret));
     settings.setValue(QStringLiteral("cryptoEnabled"), false);
     settings.sync();
+#if defined(Q_OS_WIN)
+    ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+#else
     ASSERT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
+#endif
 
     EXPECT_TRUE(ConfigurationAppTarget::recoverStartupStateBeforePreflight(
         settings, makeStore()));
@@ -1475,8 +1522,13 @@ TEST(ConfigurationAppTargetTests, EarlyImportRecoveryRepairsPartialPreferencesBe
         settings.setValue(QStringLiteral("cryptoEnabled"), false);
         settings.sync();
     }
+#if defined(Q_OS_WIN)
+    EXPECT_EQ(StartupSettingsPreflight::inspect(settings),
+              StartupSettingsPreflight::Status::Valid);
+#else
     EXPECT_EQ(StartupSettingsPreflight::inspect(settings),
               StartupSettingsPreflight::Status::InvalidValue);
+#endif
 
     EXPECT_EQ(ConfigurationAppTarget::recoverPortablePreferencesBeforePreflight(
                   settings, makeStore()),

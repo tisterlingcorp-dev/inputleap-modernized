@@ -21,6 +21,9 @@ bool ScreenLayoutEditorViewModel::moveAdjacent(const QUuid& moving,const QUuid& 
 std::optional<QStringList> ScreenLayoutEditorViewModel::toLegacyGrid(int columns,int rows) const
 {
     if(columns<=0||rows<=0||layout_.devices().empty()||!layout_.validate().isValid())return std::nullopt;
+    constexpr qsizetype maxLegacyGridCells=1000000;
+    const qint64 cellCount=qint64(columns)*qint64(rows);
+    if(cellCount>maxLegacyGridCells)return std::nullopt;
     const auto& devices=layout_.devices();int root=-1;for(int i=0;i<int(devices.size());++i)if(devices[i].uuid==localUuid_){root=i;break;}if(root<0)return std::nullopt;
     QVector<std::optional<QPoint>> positions(int(devices.size()));positions[root]=QPoint(0,0);bool changed=true;
     while(changed){changed=false;for(int i=0;i<int(devices.size());++i)if(positions[i])for(int j=0;j<int(devices.size());++j)if(i!=j&&!positions[j]){QPoint delta;bool adjacent=true;const QRect&a=devices[i].geometry,&b=devices[j].geometry;const bool yOverlap=qMax(a.top(),b.top())<=qMin(a.bottom(),b.bottom()),xOverlap=qMax(a.left(),b.left())<=qMin(a.right(),b.right());if(yOverlap&&a.right()+1==b.left())delta={1,0};else if(yOverlap&&b.right()+1==a.left())delta={-1,0};else if(xOverlap&&a.bottom()+1==b.top())delta={0,1};else if(xOverlap&&b.bottom()+1==a.top())delta={0,-1};else adjacent=false;if(adjacent){positions[j]=*positions[i]+delta;changed=true;}}}
@@ -28,7 +31,7 @@ std::optional<QStringList> ScreenLayoutEditorViewModel::toLegacyGrid(int columns
     int minX=0,maxX=0,minY=0,maxY=0;for(const auto&p:positions){minX=qMin(minX,p->x());maxX=qMax(maxX,p->x());minY=qMin(minY,p->y());maxY=qMax(maxY,p->y());}
     if(maxX-minX+1>columns||maxY-minY+1>rows)return std::nullopt;
     const int offsetX=std::clamp(columns/2-positions[root]->x(),-minX,columns-1-maxX),offsetY=std::clamp(rows/2-positions[root]->y(),-minY,rows-1-maxY);
-    QStringList result(columns*rows,QString());for(int i=0;i<int(devices.size());++i){const QPoint cell=*positions[i]+QPoint(offsetX,offsetY);const int index=cell.y()*columns+cell.x();if(index<0||index>=result.size()||!result[index].isEmpty())return std::nullopt;result[index]=devices[i].technicalName;}
+    QStringList result;result.fill(QString(),qsizetype(cellCount));for(int i=0;i<int(devices.size());++i){const QPoint cell=*positions[i]+QPoint(offsetX,offsetY);const qint64 index=qint64(cell.y())*columns+cell.x();if(index<0||index>=cellCount||!result[qsizetype(index)].isEmpty())return std::nullopt;result[qsizetype(index)]=devices[i].technicalName;}
     return result;
 }
 ScreenLayoutEditorWidget::ScreenLayoutEditorWidget(QWidget* parent):QWidget(parent)

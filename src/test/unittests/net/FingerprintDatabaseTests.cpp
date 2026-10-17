@@ -17,6 +17,10 @@
 
 #include "net/FingerprintDatabase.h"
 #include <gtest/gtest.h>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 
 namespace inputleap {
 
@@ -64,6 +68,59 @@ TEST(FingerprintDatabase, write)
     ASSERT_EQ(stream.str(), R"(v2:algo1:01020304ab
 v2:algo2:03040506ab
 )");
+}
+
+TEST(FingerprintDatabase, write_file_reports_success_and_failure)
+{
+    const auto root = std::filesystem::temp_directory_path() /
+        ("inputleap-fingerprint-db-" + std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()));
+    ASSERT_TRUE(std::filesystem::create_directory(root));
+    const auto path = root / "trusted.txt";
+
+    FingerprintDatabase db;
+    db.add_trusted({ "algo", { 1, 2, 3, 4 } });
+    ASSERT_TRUE(db.write(inputleap::path_from_utf8(path.string())));
+
+    std::ifstream file(path);
+    const std::string contents((std::istreambuf_iterator<char>(file)),
+                               std::istreambuf_iterator<char>());
+    EXPECT_EQ(contents, "v2:algo:01020304\n");
+    file.close();
+
+    db.clear();
+    ASSERT_TRUE(db.write(inputleap::path_from_utf8(path.string())));
+    std::ifstream cleared(path);
+    EXPECT_TRUE(cleared.peek() == std::ifstream::traits_type::eof());
+    cleared.close();
+    EXPECT_FALSE(db.write(inputleap::path_from_utf8(
+        (root / "missing" / "trusted.txt").string())));
+
+    std::filesystem::remove_all(root);
+}
+
+TEST(FingerprintDatabase, failed_atomic_replace_cleans_up_temporary_file)
+{
+    const auto root = std::filesystem::temp_directory_path() /
+        ("inputleap-fingerprint-db-replace-" + std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()));
+    ASSERT_TRUE(std::filesystem::create_directory(root));
+    const auto destination = root / "blocked";
+    ASSERT_TRUE(std::filesystem::create_directory(destination));
+    const auto marker = destination / "preserve.txt";
+    std::ofstream(marker) << "preserve";
+
+    FingerprintDatabase db;
+    db.add_trusted({ "algo", { 1, 2, 3, 4 } });
+    EXPECT_FALSE(db.write(inputleap::path_from_utf8(destination.string())));
+    EXPECT_TRUE(std::filesystem::exists(marker));
+
+    for (const auto& entry : std::filesystem::directory_iterator(root)) {
+        const auto name = entry.path().filename().string();
+        EXPECT_FALSE(name.find("blocked.tmp-") == 0);
+    }
+
+    std::filesystem::remove_all(root);
 }
 
 TEST(FingerprintDatabase, clear)

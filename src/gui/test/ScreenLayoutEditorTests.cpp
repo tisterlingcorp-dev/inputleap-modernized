@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QTest>
+#include <limits>
 
 namespace {
 const QUuid localId("{11111111-1111-1111-1111-111111111111}");
@@ -119,6 +120,9 @@ TEST(ScreenLayoutEditorTests, HeterogeneousSizesSnapWithoutGapAndOversizedGridIs
     std::vector<ScreenLayout::Device> vertical;for(int i=0;i<5;++i)vertical.push_back(dev(QUuid::createUuid(),QString("d%1").arg(i),0,i*100));
     EXPECT_FALSE(ScreenLayoutEditorViewModel(ScreenLayout(vertical),vertical[0].uuid).toLegacyGrid(5,3).has_value());
     EXPECT_FALSE(ScreenLayoutEditorViewModel(ScreenLayout({local,remote}),QUuid::createUuid()).toLegacyGrid(5,3).has_value());
+    EXPECT_FALSE(ScreenLayoutEditorViewModel(ScreenLayout({local,remote}),localId)
+                     .toLegacyGrid(std::numeric_limits<int>::max(),std::numeric_limits<int>::max())
+                     .has_value());
 }
 
 TEST(ScreenLayoutEditorTests, SimpleCanvasPaintsOnlyLocalAndFourRemotes)

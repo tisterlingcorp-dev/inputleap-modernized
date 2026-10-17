@@ -333,6 +333,22 @@ endif()
 # Windows Installer
 #
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+        # Select the GPL-2.0-only option for the bundled Qt 6.8.3 modules/plugins.
+        # Extract the unmodified GPL text from this project's license file, starting
+        # at the canonical heading so the OpenSSL exception is not presented as Qt's.
+        file(READ "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE" INPUTLEAP_LICENSE_TEXT)
+        string(FIND "${INPUTLEAP_LICENSE_TEXT}" "GNU GENERAL PUBLIC LICENSE" INPUTLEAP_GPL2_OFFSET)
+        if(INPUTLEAP_GPL2_OFFSET LESS 0)
+                message(FATAL_ERROR "Could not locate the GPL-2.0 text required for the bundled Qt runtime")
+        endif()
+        string(SUBSTRING "${INPUTLEAP_LICENSE_TEXT}" ${INPUTLEAP_GPL2_OFFSET} -1 INPUTLEAP_GPL2_TEXT)
+        set(INPUTLEAP_QT_GPL2_TEXT "${CMAKE_CURRENT_BINARY_DIR}/licenses/Qt/GPL-2.0.txt")
+        file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/Qt")
+        file(WRITE "${INPUTLEAP_QT_GPL2_TEXT}" "${INPUTLEAP_GPL2_TEXT}")
+        install(FILES
+                "${INPUTLEAP_QT_GPL2_TEXT}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/licenses/Qt/SOURCE.txt"
+                DESTINATION licenses/Qt)
         option(INPUTLEAP_BUNDLE_TAURI "Build and install the Tauri controller with Windows packages" ON)
         if(INPUTLEAP_BUNDLE_TAURI)
                 find_program(INPUTLEAP_CARGO_EXECUTABLE cargo)
