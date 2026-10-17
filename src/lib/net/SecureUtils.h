@@ -37,6 +37,10 @@ FingerprintData get_pem_file_cert_fingerprint(const std::string& path, Fingerpri
 
 void generate_pem_self_signed_cert(const std::string& path);
 
+// On Windows, create or protect a private file with a DACL granting access
+// only to the current user, LocalSystem, and local Administrators.
+bool secure_private_file_permissions(const std::string& path);
+
 std::string create_fingerprint_randomart(const std::vector<std::uint8_t>& dgst_raw);
 
 } // namespace inputleap

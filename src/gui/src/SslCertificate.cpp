@@ -40,15 +40,20 @@ SslCertificate::SslCertificate(QObject *parent) :
 void SslCertificate::generateCertificate()
 {
     auto cert_path = inputleap::DataDirectories::ssl_certificate_path();
+    auto cert_dir = cert_path.parent_path();
+    if (!inputleap::fs::exists(cert_dir)) {
+        inputleap::fs::create_directories(cert_dir);
+    }
+
+    const std::string cert_path_utf8 = inputleap::path_to_utf8(cert_path);
+    if (!inputleap::secure_private_file_permissions(cert_path_utf8)) {
+        Q_EMIT error(tr("Could not secure private certificate file permissions."));
+        return;
+    }
 
     if (!inputleap::fs::exists(cert_path) || !is_certificate_valid(cert_path)) {
         try {
-            auto cert_dir = cert_path.parent_path();
-            if (!inputleap::fs::exists(cert_dir)) {
-                inputleap::fs::create_directories(cert_dir);
-            }
-
-            inputleap::generate_pem_self_signed_cert(inputleap::path_to_utf8(cert_path));
+            inputleap::generate_pem_self_signed_cert(cert_path_utf8);
         }  catch (const std::exception& e) {
             Q_EMIT error(QString("SSL tool failed: %1").arg(e.what()));
             return;

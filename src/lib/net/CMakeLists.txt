@@ -27,4 +27,5 @@ target_link_libraries(net mt io OpenSSL::SSL OpenSSL::Crypto)
 
 if(WIN32)
     target_link_libraries(net OpenSSL::applink)
+    target_link_libraries(net advapi32)
 endif()
