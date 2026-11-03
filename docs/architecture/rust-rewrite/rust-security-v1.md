@@ -131,3 +131,32 @@ cover private create/replace/reopen/exclusive writer, rejection of an inherited
 directory without changing its marker, corrupt-record no-reset, failed rename
 with subsequent staging recovery, and hard-link rejection. No user configuration
 or production credential directory is opened by these tests.
+
+## Persisted peer authority
+
+`PeerRegistry` encodes a bounded, versioned record bound to both local device ID
+and certificate fingerprint. It rejects self/duplicate devices, trailing or
+truncated records, unknown capabilities/revocation states and over-capacity
+input before issuing authority. Restore is a privileged API: its caller must
+first authenticate/decrypt the record through the private DPAPI store, never
+parse network/discovery/UI bytes as persisted authority.
+
+Enrollment commits through a persistence callback before the registry returns
+the peer. Failed publication revokes candidate clones. Duplicate enrollment does
+not revoke an existing grant. Explicit replacement requires a separate newly
+confirmed pairing; a clone of existing authority cannot reactivate revocation.
+Successful replacement revokes old live clones; failed replacement preserves the
+old grant and invalidates the new candidate.
+
+Revocation stops live authority before attempting persistence. A failed write
+returns an error, blocks new registry authorizations, and requires a successful
+persistence retry. It must never be displayed as successful durable revocation.
+Only an acknowledged successful atomic write establishes restart persistence;
+power loss before a failed write is retried cannot magically commit it. Generation
+numbers do not protect against an administrator restoring an older valid blob.
+
+Six registry tests and a Windows loopback/DPAPI/filesystem integration test cover
+restart-style reconstruction, revoked tombstones, identity binding, failures,
+replacement/replay and malformed input. The Windows test does not restart a
+machine/service or inject input. Production LocalSystem bootstrap still needs
+atomic identity/registry lifecycle, authenticated UI pairing and service wiring.

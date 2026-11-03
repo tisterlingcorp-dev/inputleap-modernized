@@ -524,4 +524,92 @@ mod tests {
         assert!(store.load(RecordKind::Identity).is_err());
         assert!(store.save(RecordKind::Identity, b"replacement").is_err());
     }
+
+    #[test]
+    fn confirmed_peer_and_revocation_survive_actual_dpapi_store_reopen() {
+        use inputleap_security::{Capabilities, LocalIdentity, PeerRegistry, PendingPairing};
+        use std::net::{TcpListener, TcpStream};
+        use std::sync::{Arc, mpsc};
+        use std::time::Duration;
+
+        let timeout = Duration::from_secs(3);
+        let local = Arc::new(LocalIdentity::generate().unwrap());
+        let remote = Arc::new(LocalIdentity::generate().unwrap());
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = listener.local_addr().unwrap();
+        let (code_tx, code_rx) = mpsc::channel();
+        let (approve_tx, approve_rx) = mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + timeout;
+            let stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error)
+                        if error.kind() == io::ErrorKind::WouldBlock
+                            && std::time::Instant::now() < deadline =>
+                    {
+                        std::thread::sleep(Duration::from_millis(2))
+                    }
+                    Err(error) => panic!("synthetic pairing accept failed: {error}"),
+                }
+            };
+            stream.set_nonblocking(false).unwrap();
+            let pending =
+                PendingPairing::accept(stream, remote, Capabilities::INPUT, timeout).unwrap();
+            code_tx.send(pending.comparison_code()).unwrap();
+            pending
+                .confirm(
+                    approve_rx.recv_timeout(timeout).unwrap(),
+                    Capabilities::INPUT,
+                )
+                .unwrap()
+        });
+        let pending = PendingPairing::connect(
+            TcpStream::connect_timeout(&address, timeout).unwrap(),
+            local.clone(),
+            Capabilities::INPUT,
+            timeout,
+        )
+        .unwrap();
+        let matches = pending.comparison_code() == code_rx.recv_timeout(timeout).unwrap();
+        approve_tx.send(matches).unwrap();
+        let peer = pending.confirm(matches, Capabilities::INPUT).unwrap();
+        let _remote_peer = server.join().unwrap();
+        let id = peer.identity().device();
+        let fixture = Fixture::new();
+        let mut store = ProtectedStore::open(&fixture.root()).unwrap();
+        let mut registry = PeerRegistry::empty(&local);
+        registry
+            .enroll_confirmed(peer.clone(), |bytes| store.save(RecordKind::Peers, bytes))
+            .unwrap();
+        drop(registry);
+        drop(store);
+        let mut store = ProtectedStore::open(&fixture.root()).unwrap();
+        let record = store.load(RecordKind::Peers).unwrap().unwrap();
+        let mut registry = PeerRegistry::restore_from_os_authenticated_storage(
+            &local,
+            record.expose_for_validation(),
+        )
+        .unwrap();
+        assert_eq!(
+            registry.authorized_peer(id).unwrap().capabilities(),
+            Capabilities::INPUT
+        );
+        let active = registry.authorized_peer(id).unwrap();
+        registry
+            .revoke(id, |bytes| store.save(RecordKind::Peers, bytes))
+            .unwrap();
+        assert!(active.is_revoked());
+        drop(registry);
+        drop(store);
+        let store = ProtectedStore::open(&fixture.root()).unwrap();
+        let record = store.load(RecordKind::Peers).unwrap().unwrap();
+        let registry = PeerRegistry::restore_from_os_authenticated_storage(
+            &local,
+            record.expose_for_validation(),
+        )
+        .unwrap();
+        assert!(registry.authorized_peer(id).is_err());
+    }
 }

@@ -27,6 +27,23 @@ pub struct PairedPeer {
 }
 
 impl PairedPeer {
+    pub(crate) fn shares_authority_with(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.revocation, &other.revocation)
+    }
+    pub(crate) fn from_authenticated_storage(
+        identity: PublicIdentity,
+        capabilities: Capabilities,
+        revoked: bool,
+    ) -> Self {
+        Self {
+            identity,
+            capabilities,
+            revocation: Arc::new(Revocation {
+                revoked: AtomicBool::new(revoked),
+                channels: Mutex::new(Vec::new()),
+            }),
+        }
+    }
     pub fn identity(&self) -> &PublicIdentity {
         &self.identity
     }
