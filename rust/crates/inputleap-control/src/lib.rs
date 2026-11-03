@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 
 pub const SCHEMA_VERSION: u16 = 1;
 pub const MAX_CONTROL_FRAME: usize = 64 * 1024;
+/// Receipt byte after a complete validated response; permits safe pipe reuse.
+pub const STATUS_RECEIPT_ACK: u8 = 0xa5;
 pub const PILOT_INPUT_PORT: u16 = 24_900;
 pub const PILOT_DATA_PORT: u16 = 24_910;
 pub const PILOT_PIPE_NAME: &str = r"\\.\pipe\InputLeapRustPilot.v1";

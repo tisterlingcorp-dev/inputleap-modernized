@@ -16,6 +16,11 @@ The current operational build is still hybrid; the Rust migration is not complet
 and the new control-contract crate does not itself provide a service or runtime.
 Do not remove or replace the working C++ installation before pilot acceptance.
 
+The root Rust workspace now builds the separate `input-leap-rust-service` and
+`input-leap-rust-worker` pilot hosts. Native SCM lifecycle and authenticated local
+diagnostic IPC have been exercised on Windows. The worker is still a diagnostic
+bootstrap; these hosts do not yet provide network input, clipboard or files.
+
 The migration is intentionally hybrid:
 
 ```text

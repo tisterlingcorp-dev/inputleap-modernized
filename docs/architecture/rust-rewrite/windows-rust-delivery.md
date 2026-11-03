@@ -18,6 +18,7 @@ choice alone.
 | --- | --- | --- |
 | Tauri | Existing operational UI supervises C++ over TCP IPC | Rust named pipe integration and real state |
 | Rust agent | Standalone X11 backend; rejects Windows | Windows worker, truthful status, session ownership |
+| Rust pilot hosts | Separate native SCM service and diagnostic Windows worker binaries | Authenticated worker launch, productive input/clipboard/files |
 | Rust server | mTLS socket and polling Windows capture | Pair-bound productive session and event capture |
 | Windows backend | SendInput, primary display and basic keys/buttons | Extended keys, wheel, DPI, virtual desktop, hooks, release state |
 | Transfer | Queue of complete buffers, maximum 16 MiB | Consent, streaming, resume, secure atomic publication |
@@ -37,17 +38,46 @@ supervisor policies. Pilot pipe: `\\.\pipe\InputLeapRustPilot.v1`; input TCP 249
 data TCP 24910. These are distinct from the operational C++ ports.
 
 The Windows platform pipe endpoint rejects remote pipe clients, uses a restrictive DACL,
-derive PID/token/session/SID from Windows and validate them before dispatch.
+derives PID/token/session/SID from Windows and validates them before dispatch.
 Request fields never grant identity. Pairing handles, transfer offers and status
 contain no private keys or clipboard content. Framing is bounded to 64 KiB with a
 big-endian u32 byte length; unknown fields, versions and truncated messages fail.
 The endpoint is implemented in the Windows platform crate with actual OS pipe
-tests. It uses a single-request deadline, first-instance enforcement and client
-token impersonation reverted before returning an authorized request. Status
-responses carry the originating request ID. No application dispatcher, SCM
-service registration or worker launch is implemented yet; the contract crate
-alone never authorizes an operation. Client-side verification of the supervisor
-identity is still required before the UI uses this endpoint.
+tests. It retains a single first-instance listener and serializes exchanges under
+an exclusive borrow. Every exchange has a deadline; client token impersonation is
+reverted before returning an authorized request. Responses carry the originating
+request ID. After validating and consuming a response the client sends the single
+receipt byte `0xa5`; only then may the server disconnect, preventing Windows from
+discarding unread response bytes. Disappearing or malformed clients reset their
+connection without releasing the namespace or stopping the host.
+
+The client requests identification-only SQOS, pins the server executable by file
+identity and keeps its process handle open. Production service identity additionally
+requires Session 0 and a matching live dedicated `InputLeapRustPilot` LocalSystem
+PID obtained from SCM. It does not rely on an ordinary UI being allowed to query a
+SYSTEM process token. Explicit development process pins are separate; SCM errors
+never downgrade to development trust.
+
+`inputleap-pilot` builds `input-leap-rust-service` and `input-leap-rust-worker` as
+members of the root workspace, so all existing pilot gates include both binaries.
+The service has a native SCM entry point, STOP/SHUTDOWN handling and a read-only
+diagnostic dispatcher scoped to the active physical console's OS identity. It
+remains alive without a logged-on console user. Console-mode development hosts
+require an explicit bounded run duration and an interactive session. The worker
+is currently a diagnostic bootstrap: neither host claims productive input, file
+or clipboard capabilities. Standalone execution never starts input. Pairing and
+transfer commands report unavailable, and Start/Reconnect require pairing. Worker
+creation, productive authentication and UI integration remain subsequent work.
+
+`scripts/windows/smoke_rust_service.ps1` is an elevated development/CI test, not the
+product installer. It refuses existing service/directory collisions, temporarily
+copies the two hashes-verified Release executables into a separate protected
+Program Files pilot folder, registers Manual LocalSystem startup, verifies native
+SCM identity and interactive IPC when available, stops/deletes the service and
+removes only its known unchanged files and empty directory. No recursive cleanup
+or operational InputLeap mutation occurs. On Session 0 CI hosts the report must
+explicitly distinguish unexercised interactive IPC from the SCM lifecycle test.
+An actual local interactive test has exercised the full native SCM/IPC path.
 
 The worker must not run in Session 0 or on the secure desktop. Network failures
 retry at 1/2/4/8/16/30 seconds with OS-random jitter (up to 250 ms, capped at 30 s).

@@ -326,6 +326,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "inputleap-pilot"
+version = "0.1.0"
+dependencies = [
+ "inputleap-control",
+ "inputleap-platform-windows",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "inputleap-platform-windows"
 version = "0.1.0"
 dependencies = [

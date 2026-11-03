@@ -31,3 +31,6 @@ jobs:
       - name: Validate all Windows Rust manifests
         shell: pwsh
         run: ./scripts/windows/gate_rust_pilot.ps1
+      - name: Smoke native Rust SCM lifecycle without input
+        shell: pwsh
+        run: ./scripts/windows/smoke_rust_service.ps1 -BinaryDirectory rust/target/release -OutputPath out/rust-pilot/scm-smoke.json

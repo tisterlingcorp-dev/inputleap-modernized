@@ -1,0 +1,24 @@
+[package]
+name = "inputleap-pilot"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+inputleap-control = { path = "../inputleap-control", version = "0.1.0" }
+inputleap-platform-windows = { path = "../inputleap-platform-windows", version = "0.1.0" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "input-leap-rust-service"
+path = "src/bin/service.rs"
+
+[[bin]]
+name = "input-leap-rust-worker"
+path = "src/bin/worker.rs"
