@@ -108,6 +108,33 @@ fn token_sid(token: HANDLE) -> io::Result<String> {
 pub struct InteractiveSession {
     pub session_id: u32,
     pub user_sid: String,
+    /// OS logon instance; a reused session number/SID is not the same login.
+    pub logon_id: u64,
+}
+
+fn token_logon_id(token: HANDLE) -> io::Result<u64> {
+    use windows_sys::Win32::Security::{TOKEN_STATISTICS, TokenStatistics};
+    let mut statistics = std::mem::MaybeUninit::<TOKEN_STATISTICS>::uninit();
+    let mut written = 0;
+    // SAFETY: a live queryable token, aligned output of the documented type.
+    if unsafe {
+        GetTokenInformation(
+            token,
+            TokenStatistics,
+            statistics.as_mut_ptr().cast(),
+            size_of::<TOKEN_STATISTICS>() as u32,
+            &mut written,
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    if written as usize != size_of::<TOKEN_STATISTICS>() {
+        return Err(io::Error::other("unexpected token statistics size"));
+    }
+    // SAFETY: a successful fixed-size query initialized the whole structure.
+    let authentication = unsafe { statistics.assume_init() }.AuthenticationId;
+    Ok((u64::from(authentication.HighPart as u32) << 32) | u64::from(authentication.LowPart))
 }
 
 /// Identity of the current process, never taken from a command argument.
@@ -129,9 +156,16 @@ pub fn current_interactive_session() -> io::Result<InteractiveSession> {
             "interactive session required",
         ));
     }
+    let mut token = null_mut();
+    // SAFETY: process pseudo handle is live; successful result is owned below.
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let token = OwnedToken(token);
     Ok(InteractiveSession {
         session_id,
-        user_sid: current_user_sid()?,
+        user_sid: token_sid(token.0)?,
+        logon_id: token_logon_id(token.0)?,
     })
 }
 
@@ -157,9 +191,11 @@ pub fn active_console_session() -> io::Result<Option<InteractiveSession>> {
         }
         return Err(error);
     }
+    let token = OwnedToken(token);
     Ok(Some(InteractiveSession {
         session_id,
-        user_sid: token_sid(OwnedToken(token).0)?,
+        user_sid: token_sid(token.0)?,
+        logon_id: token_logon_id(token.0)?,
     }))
 }
 
@@ -679,6 +715,20 @@ impl Write for DeadlinePipe {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn logon_instance_comes_from_querying_the_os_token() {
+        let mut token = null_mut();
+        // SAFETY: live pseudo process handle; successful output is owned below.
+        assert_ne!(
+            unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) },
+            0
+        );
+        let token = OwnedToken(token);
+        let first = token_logon_id(token.0).unwrap();
+        assert_ne!(first, 0);
+        assert_eq!(first, token_logon_id(token.0).unwrap());
+    }
     use inputleap_control::{Command, RuntimeState, SCHEMA_VERSION, write_request};
     use std::fs::OpenOptions;
     use std::sync::atomic::{AtomicUsize, Ordering};

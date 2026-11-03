@@ -12,6 +12,9 @@ use serde::Serialize;
 #[cfg(windows)]
 pub mod secure_state;
 
+#[cfg(windows)]
+pub mod pairing_control;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum ServiceMode {
     Help,
@@ -21,6 +24,7 @@ pub enum ServiceMode {
     Scm,
     ProvisionScm,
     Revoke { device_id: String },
+    Control { command: Command },
     Console { run_for: Duration },
 }
 
@@ -38,6 +42,45 @@ pub fn service_mode(args: impl IntoIterator<Item = String>) -> io::Result<Servic
                 .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid device ID"))?;
             Ok(ServiceMode::Revoke {
                 device_id: device_id.clone(),
+            })
+        }
+        [flag] if flag == "--stop-pilot" => Ok(ServiceMode::Control {
+            command: Command::Stop {},
+        }),
+        [flag, address, bits] if flag == "--pair-connect" || flag == "--pair-listen" => {
+            let bits: u8 = bits.parse().map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidInput, "capabilities must be 0..7")
+            })?;
+            inputleap_security::Capabilities::from_bits(bits)?;
+            let command = if flag == "--pair-connect" {
+                Command::BeginPairing {
+                    address: address.clone(),
+                    capabilities: bits,
+                }
+            } else {
+                Command::ListenPairing {
+                    address: address.clone(),
+                    capabilities: bits,
+                }
+            };
+            Ok(ServiceMode::Control { command })
+        }
+        [flag, pairing_id, decision] if flag == "--pair-confirm" => {
+            let matches = match decision.as_str() {
+                "yes" => true,
+                "no" => false,
+                _ => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "compare complete codes, then choose yes or no",
+                    ));
+                }
+            };
+            Ok(ServiceMode::Control {
+                command: Command::ConfirmPairing {
+                    pairing_id: pairing_id.clone(),
+                    matches,
+                },
             })
         }
         [flag, duration, milliseconds] if flag == "--console" && duration == "--run-for-ms" => {
@@ -148,6 +191,7 @@ pub mod windows {
         mut security: Option<&mut super::secure_state::PersistentSecurityState>,
     ) -> io::Result<()> {
         let start = Instant::now();
+        let mut pairing = super::pairing_control::PairingController::default();
         let mut endpoint = None;
         while !stop.is_stopped() && run_for.is_none_or(|limit| start.elapsed() < limit) {
             let identity = if system {
@@ -155,6 +199,9 @@ pub mod windows {
             } else {
                 Some(current_interactive_session()?)
             };
+            if let Some(security) = security.as_deref_mut() {
+                pairing.poll(identity.as_ref(), security);
+            }
             let Some(identity) = identity else {
                 endpoint = None;
                 std::thread::sleep(Duration::from_millis(200));
@@ -192,7 +239,66 @@ pub mod windows {
                         continue;
                     }
                     let status = match security.as_deref_mut() {
-                        Some(security) => security.dispatch_authorized(&request.request.command),
+                        Some(security) => {
+                            let command = &request.request.command;
+                            pairing.poll(Some(&identity), security);
+                            let action = match command {
+                                Command::BeginPairing { .. } | Command::ListenPairing { .. }
+                                    if !security.persistence_is_healthy() =>
+                                {
+                                    Some(Err("security_persistence_failed"))
+                                }
+                                Command::BeginPairing {
+                                    address,
+                                    capabilities,
+                                } => Some(pairing.begin(
+                                    &identity,
+                                    security.identity().clone(),
+                                    address,
+                                    *capabilities,
+                                    false,
+                                )),
+                                Command::ListenPairing {
+                                    address,
+                                    capabilities,
+                                } => Some(pairing.begin(
+                                    &identity,
+                                    security.identity().clone(),
+                                    address,
+                                    *capabilities,
+                                    true,
+                                )),
+                                Command::ConfirmPairing {
+                                    pairing_id,
+                                    matches,
+                                } => Some(pairing.confirm(&identity, pairing_id, *matches)),
+                                Command::Stop {} | Command::Revoke { .. } => {
+                                    pairing.cancel();
+                                    None
+                                }
+                                _ => None,
+                            };
+                            let mut status = security.dispatch_authorized(command);
+                            if action.as_ref().is_some_and(Result::is_ok)
+                                && status
+                                    .security
+                                    .as_ref()
+                                    .is_some_and(|security| security.persistence_healthy)
+                            {
+                                status.state = RuntimeState::Stopped;
+                                status.error_code = None;
+                            }
+                            if action.is_some()
+                                || matches!(command, Command::Status {} | Command::Diagnostics {})
+                            {
+                                pairing.decorate(&identity, &mut status);
+                            }
+                            if let Some(Err(error)) = action {
+                                status.state = RuntimeState::Error;
+                                status.error_code = Some(error.into());
+                            }
+                            status
+                        }
                         None => dispatch_diagnostic(&request.request.command),
                     };
                     if let Err(error) = request.respond_status(&status) {
@@ -250,6 +356,23 @@ pub mod windows {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pairing_cli_requires_explicit_rights_and_an_unambiguous_human_decision() {
+        for args in [
+            vec!["--pair-connect", "127.0.0.1:24920"],
+            vec!["--pair-listen", "127.0.0.1:24920", "128"],
+            vec!["--pair-confirm", "id", "maybe"],
+        ] {
+            assert!(service_mode(args.into_iter().map(String::from)).is_err());
+        }
+        assert!(matches!(
+            service_mode(["--pair-confirm", "local-attempt-id", "no"].map(String::from)).unwrap(),
+            ServiceMode::Control {
+                command: Command::ConfirmPairing { matches: false, .. }
+            }
+        ));
+    }
 
     #[test]
     fn startup_requires_explicit_mode_and_console_is_bounded() {

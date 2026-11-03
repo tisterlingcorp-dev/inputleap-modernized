@@ -218,6 +218,9 @@ impl PendingPairing {
     pub fn peer(&self) -> &PublicIdentity {
         &self.peer
     }
+    pub fn set_cancellation(&mut self, cancellation: crate::PairingCancellation) {
+        self.wire.set_pairing_cancellation(cancellation);
+    }
     pub const fn proposed_capabilities(&self) -> Capabilities {
         self.proposed
     }

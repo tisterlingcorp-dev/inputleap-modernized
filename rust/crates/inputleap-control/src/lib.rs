@@ -12,13 +12,14 @@ use std::io::{self, Read, Write};
 
 use serde::{Deserialize, Serialize};
 
-pub const SCHEMA_VERSION: u16 = 2;
+pub const SCHEMA_VERSION: u16 = 3;
 pub const MAX_CONTROL_FRAME: usize = 64 * 1024;
 /// Receipt byte after a complete validated response; permits safe pipe reuse.
 pub const STATUS_RECEIPT_ACK: u8 = 0xa5;
 pub const PILOT_INPUT_PORT: u16 = 24_900;
 pub const PILOT_DATA_PORT: u16 = 24_910;
-pub const PILOT_PIPE_NAME: &str = r"\\.\pipe\InputLeapRustPilot.v2";
+pub const PILOT_PAIRING_PORT: u16 = 24_920;
+pub const PILOT_PIPE_NAME: &str = r"\\.\pipe\InputLeapRustPilot.v3";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -39,6 +40,11 @@ pub enum Command {
     Discover {},
     BeginPairing {
         address: String,
+        capabilities: u8,
+    },
+    ListenPairing {
+        address: String,
+        capabilities: u8,
     },
     ConfirmPairing {
         pairing_id: String,
@@ -78,7 +84,19 @@ impl Request {
             return Err(invalid("unsupported version or missing request ID"));
         }
         let fields: Vec<(&str, usize)> = match &self.command {
-            Command::BeginPairing { address } => vec![(address, 255)],
+            Command::BeginPairing {
+                address,
+                capabilities,
+            }
+            | Command::ListenPairing {
+                address,
+                capabilities,
+            } => {
+                if capabilities & !7 != 0 {
+                    return Err(invalid("invalid pairing capabilities"));
+                }
+                vec![(address, 255)]
+            }
             Command::ConfirmPairing { pairing_id, .. } => vec![(pairing_id, 128)],
             Command::Revoke { device_id } => vec![(device_id, 128)],
             Command::OfferTransfer { offer_id } => vec![(offer_id, 128)],
@@ -117,10 +135,31 @@ pub struct StatusSnapshot {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SecuritySnapshot {
+    pub pairing: Option<PairingSnapshot>,
     pub persistence_healthy: bool,
     pub device_id: String,
     pub fingerprint: String,
     pub peers: Vec<PeerSnapshot>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PairingSnapshot {
+    pub pairing_id: String,
+    pub phase: PairingPhase,
+    pub comparison_code: Option<String>,
+    pub peer_device_id: Option<String>,
+    pub peer_fingerprint: Option<String>,
+    pub capabilities: u8,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PairingPhase {
+    Connecting,
+    Listening,
+    AwaitingLocalConfirmation,
+    AwaitingPeerConfirmation,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -259,6 +298,7 @@ mod tests {
             Request {
                 command: Command::BeginPairing {
                     address: "\0host".into(),
+                    capabilities: 1,
                 },
                 ..request()
             },
@@ -276,12 +316,39 @@ mod tests {
             write_request(
                 &mut output,
                 &Request {
-                    version: 1,
+                    version: SCHEMA_VERSION - 1,
                     ..request()
                 }
             )
             .is_err()
         );
         assert!(output.is_empty());
+    }
+
+    #[test]
+    fn pairing_capabilities_cannot_request_unknown_rights() {
+        for command in [
+            Command::BeginPairing {
+                address: "127.0.0.1:24920".into(),
+                capabilities: 128,
+            },
+            Command::ListenPairing {
+                address: "127.0.0.1:24920".into(),
+                capabilities: 8,
+            },
+        ] {
+            let mut output = Vec::new();
+            assert!(
+                write_request(
+                    &mut output,
+                    &Request {
+                        command,
+                        ..request()
+                    }
+                )
+                .is_err()
+            );
+            assert!(output.is_empty());
+        }
     }
 }

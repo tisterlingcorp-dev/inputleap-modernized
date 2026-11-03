@@ -27,7 +27,7 @@ foreach ($name in $files) {
         $sources[$name] = @{ Path = $item.FullName; Hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash }
     } else { throw "Invalid source executable: $name" }
 }
-$result = [ordered]@{ SchemaVersion=2; ScmLifecyclePassed=$false; InteractiveIpcExercised=$false; SecurityStateReloadPassed=$false; CrossAccountDecryptDenied=$false; CorruptStateStartupDenied=$false; PayloadHashes=@{}; AutoStartEnabled=$false }
+$result = [ordered]@{ SchemaVersion=3; ScmLifecyclePassed=$false; InteractiveIpcExercised=$false; PairingWindowIpcExercised=$false; SecurityStateReloadPassed=$false; CrossAccountDecryptDenied=$false; CorruptStateStartupDenied=$false; PayloadHashes=@{}; AutoStartEnabled=$false }
 $createdService = $false
 $createdRoot = $false
 function Invoke-PilotControl([string]$Executable, [string]$Argument) {
@@ -111,8 +111,15 @@ try {
         $status = Invoke-PilotControl $executable '--query'
         if ($status.status.state -ne 'stopped' -or $status.status.error_code -ne 'authenticated_runtime_not_ready') { throw 'Unpaired service advertised an active runtime' }
         $publicDevice = [guid]::Empty
-        if ($status.version -ne 2 -or $status.status.version -ne 2 -or !$status.status.security.persistence_healthy -or ![guid]::TryParse($status.status.security.device_id, [ref]$publicDevice) -or $status.status.security.fingerprint -notmatch '^[0-9a-f]{64}$' -or @($status.status.security.peers).Count -ne 0) { throw 'Verified IPC did not return bounded public identity metadata' }
+        if ($status.version -ne 3 -or $status.status.version -ne 3 -or !$status.status.security.persistence_healthy -or ![guid]::TryParse($status.status.security.device_id, [ref]$publicDevice) -or $status.status.security.fingerprint -notmatch '^[0-9a-f]{64}$' -or @($status.status.security.peers).Count -ne 0) { throw 'Verified IPC did not return bounded public identity metadata' }
         $result.InteractiveIpcExercised = $true
+        $listen = Invoke-PilotControl $executable '--pair-listen 127.0.0.1:24920 1'
+        if ($listen.status.security.pairing.phase -ne 'listening' -or $listen.status.security.pairing.pairing_id -notmatch '^[0-9a-f]{32}$' -or $listen.status.security.pairing.comparison_code) { throw 'Pairing listener did not start as an untrusted explicit window' }
+        $responsive = Invoke-PilotControl $executable '--query'
+        if ($responsive.status.security.pairing.phase -ne 'listening' -or @($responsive.status.security.peers).Count -ne 0) { throw 'Pending network window blocked IPC or authorized a peer' }
+        $stopped = Invoke-PilotControl $executable '--stop-pilot'
+        if ($stopped.status.state -ne 'stopped' -or $stopped.status.security.pairing) { throw 'Stop did not cancel/hide the pending pairing' }
+        $result.PairingWindowIpcExercised = $true
     }
     Stop-Service -Name $serviceName
     $service = Get-Service -Name $serviceName

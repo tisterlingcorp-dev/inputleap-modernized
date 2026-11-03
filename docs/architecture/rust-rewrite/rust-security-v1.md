@@ -218,8 +218,9 @@ test deliberately blocks rename, observes the error across subsequent Status,
 then releases the handle and proves persisted denial after retry/reopen.
 Registry metadata does not issue connection authority.
 
-The control schema and endpoint move together to version 2 / pipe
-`\\.\pipe\InputLeapRustPilot.v2`; version 1 requests are rejected, not downgraded.
+The initial revocation checkpoint used schema/pipe version 2. The current
+asynchronous pairing extension below uses version 3; older versions are rejected,
+not downgraded.
 The Rust client helper `command_installed_service` checks the same pinned SCM
 identity before sending. CLI `--revoke DEVICE_UUID` uses that helper and exits
 with failure when the public response reports an error. It does not install or
@@ -230,4 +231,44 @@ the grant, authenticates client/server identities, queries metadata, revokes,
 queries the revoked flag and reopens the snapshot to confirm denial. Session 0
 tests assert that an interactive endpoint cannot bind there; they do not claim
 that interactive IPC was exercised. Unknown/malformed IDs and old-schema requests
-also fail closed. Network pairing commands and the Tauri consent UI remain open.
+also fail closed. The Tauri consent UI remains open.
+
+## Asynchronous authorized pairing IPC v3
+
+The service dispatches BeginPairing, ListenPairing and ConfirmPairing to one
+PairingController, never waits for sockets/human decisions in the pipe loop, and
+continues serving Status/Stop. Only explicit session-authorized Listen opens a
+60-second TCP 24920 window. Addresses are numeric LAN/Tailscale IP:port (no DNS
+blocking); multicast, broadcast, unspecified connect targets and other ports are
+rejected. There is one attempt/worker, a two-second restart throttle, at most five
+bad incoming handshakes per window, and a three-second absolute handshake budget.
+The listener is not discovery and cannot authorize any device on its own.
+
+Attempt IDs come from 128 random bits. Approval must match that attempt and the
+same OS-derived SID, session ID AND token AuthenticationId/logon instance. A new
+login cannot inherit an old decision merely by reusing a session number/SID.
+Stop, revocation, expiration and owner/login change cancel the attempt. Public
+status exposes the proposed rights, peer fingerprint and complete 96-bit code
+only while the matching authorized session owns the attempt. Both signed local
+and remote confirmations are required before enrollment or explicit fresh-pair
+replacement is atomically persisted. A stale/duplicate/wrong-owner confirmation
+does not publish rights. Persistence failure remains an error, not paired success.
+
+Provisional TLS confirmation reads check a cancellation token in <=50ms read
+slices. Cancellation is ConnectionAborted, not Interrupted: read_exact would retry
+Interrupted and could spin forever. The handshake itself remains bounded to
+three seconds. Five Windows controller tests cover two decisions, negotiated
+rights, wrong owner/ID/replay, rejection, expiry, session/logon reuse, cancellation
+with a live unconfirmed remote, bad addresses, capacity/throttle and five failed
+incoming handshakes. A transport regression test retains a silent remote socket
+and proves read_exact terminates on cancellation, not EOF or retry spin.
+
+CLI developer helpers --pair-listen IP:24920 CAP_BITS, --pair-connect IP:24920
+CAP_BITS, --pair-confirm ATTEMPT_ID yes|no and --stop-pilot use the authenticated
+SCM client. Rights bits are explicit (input=1, clipboard=2, files=4); confirmation
+requires comparing the COMPLETE code on both devices. No identity private key or
+password is an argument. The current endpoint is InputLeapRustPilot.v3. The
+native smoke additionally opens a loopback-only untrusted pairing window, proves
+Status remains responsive without a network peer, and cancels it through IPC.
+Synthetic tests do not replace human/UI testing on two Windows machines. Tauri
+consent integration, productive input/data channels and full pilot remain open.

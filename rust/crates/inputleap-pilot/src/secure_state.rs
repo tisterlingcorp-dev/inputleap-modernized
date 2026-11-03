@@ -16,6 +16,15 @@ pub struct PersistentSecurityState {
 }
 
 impl PersistentSecurityState {
+    pub fn persistence_is_healthy(&self) -> bool {
+        self.registry.persistence_is_healthy()
+    }
+    pub fn knows_device(&self, id: DeviceId) -> bool {
+        self.registry
+            .descriptions()
+            .iter()
+            .any(|peer| peer.device == id)
+    }
     /// Must only run after OS pipe identity/session authorization and the
     /// active-session recheck. No request field is an authentication credential.
     pub fn dispatch_authorized(
@@ -38,6 +47,7 @@ impl PersistentSecurityState {
             }
         }
         status.security = Some(SecuritySnapshot {
+            pairing: None,
             persistence_healthy: self.registry.persistence_is_healthy(),
             device_id: self.identity.public().device().to_string(),
             fingerprint: fingerprint(self.identity.public().fingerprint()),

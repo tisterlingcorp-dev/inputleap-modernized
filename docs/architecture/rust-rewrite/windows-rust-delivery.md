@@ -33,9 +33,10 @@ these gates is necessary, not proof of interactive or installer parity.
 
 ## Control contract and process isolation
 
-`inputleap-control` defines v2 local command framing, statuses and deterministic
-supervisor policies. Pilot pipe: `\\.\pipe\InputLeapRustPilot.v2`; input TCP 24900;
-data TCP 24910. These are distinct from the operational C++ ports.
+`inputleap-control` defines v3 local command framing, statuses and deterministic
+supervisor policies. Pilot pipe: `\\.\pipe\InputLeapRustPilot.v3`; input TCP 24900;
+data TCP 24910; explicit temporary pairing TCP 24920. These are distinct from the
+operational C++ ports. Discovery never starts a pairing listener automatically.
 
 The Windows platform pipe endpoint rejects remote pipe clients, uses a restrictive DACL,
 derives PID/token/session/SID from Windows and validates them before dispatch.
@@ -69,7 +70,9 @@ require an explicit bounded run duration and an interactive session. The worker
 is currently a diagnostic bootstrap: neither host claims productive input, file
 or clipboard capabilities. Standalone execution never starts input. Pairing and
 transfer commands report unavailable, and Start/Reconnect require pairing. Worker
-creation, network-pairing command integration and UI integration remain subsequent work.
+creation and UI integration remain subsequent work. Begin/Listen/Confirm commands
+now use a single bounded asynchronous pairing worker, bound to OS SID/session/logon
+instance, with both signed human decisions required before snapshot publication.
 
 `scripts/windows/smoke_rust_service.ps1` is an elevated development/CI test, not the
 product installer. It refuses existing service/directory collisions, temporarily

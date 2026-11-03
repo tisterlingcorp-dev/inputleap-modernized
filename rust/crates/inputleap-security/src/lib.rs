@@ -15,6 +15,22 @@ pub use transport::{AuthenticatedChannel, ChannelKind, Operation, ReceivedFrame}
 mod tests;
 
 use std::io;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+
+/// Cancellation of a provisional pairing does not grant any authority.
+#[derive(Clone, Default)]
+pub struct PairingCancellation(Arc<AtomicBool>);
+impl PairingCancellation {
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+}
 
 pub(crate) fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)

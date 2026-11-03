@@ -70,6 +70,7 @@ pub(crate) struct DeadlineTcp {
     stream: TcpStream,
     deadline: Instant,
     cancellation: Option<PairedPeer>,
+    pairing_cancellation: Option<crate::PairingCancellation>,
 }
 
 impl DeadlineTcp {
@@ -82,6 +83,7 @@ impl DeadlineTcp {
             stream,
             deadline,
             cancellation: None,
+            pairing_cancellation: None,
         })
     }
     fn prepare(&self) -> io::Result<()> {
@@ -96,7 +98,7 @@ impl DeadlineTcp {
         // On Windows, shutdown of a duplicated socket does not reliably wake an
         // already blocked read. Bound individual waits, retaining the overall
         // deadline and checking revocation between waits (no busy polling).
-        let read_wait = if self.cancellation.is_some() {
+        let read_wait = if self.cancellation.is_some() || self.pairing_cancellation.is_some() {
             remaining.min(Duration::from_millis(50))
         } else {
             remaining
@@ -105,6 +107,16 @@ impl DeadlineTcp {
         self.stream.set_write_timeout(Some(remaining))
     }
     fn check_cancellation(&self) -> io::Result<()> {
+        if self
+            .pairing_cancellation
+            .as_ref()
+            .is_some_and(crate::PairingCancellation::is_cancelled)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
+                "pairing cancelled",
+            ));
+        }
         if let Some(peer) = &self.cancellation {
             peer.ensure_active()?;
         }
@@ -125,7 +137,7 @@ impl Read for DeadlineTcp {
             self.check_cancellation()?;
             match result {
                 Err(error)
-                    if self.cancellation.is_some()
+                    if (self.cancellation.is_some() || self.pairing_cancellation.is_some())
                         && matches!(
                             error.kind(),
                             io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
@@ -155,6 +167,12 @@ pub(crate) enum Wire {
 }
 
 impl Wire {
+    pub(crate) fn set_pairing_cancellation(&mut self, cancellation: crate::PairingCancellation) {
+        match self {
+            Self::Client(s) => s.sock.pairing_cancellation = Some(cancellation),
+            Self::Server(s) => s.sock.pairing_cancellation = Some(cancellation),
+        }
+    }
     pub(crate) fn socket(&self) -> &TcpStream {
         match self {
             Self::Client(stream) => &stream.sock.stream,
@@ -641,6 +659,36 @@ fn verify_hello(
 #[cfg(test)]
 mod boundary_tests {
     use super::*;
+
+    #[test]
+    fn pairing_cancellation_wakes_read_exact_without_retryable_interrupted_loop() {
+        use std::sync::mpsc;
+        let listener = crate::tests::listener();
+        let client =
+            TcpStream::connect_timeout(&listener.local_addr().unwrap(), Duration::from_secs(2))
+                .unwrap();
+        let remote = crate::tests::accept(listener).unwrap();
+        let cancellation = crate::PairingCancellation::default();
+        let token = cancellation.clone();
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            let mut socket = DeadlineTcp::new(client, Duration::from_secs(5)).unwrap();
+            socket.pairing_cancellation = Some(token);
+            ready_tx.send(()).unwrap();
+            let error = socket.read_exact(&mut [0; 1]).unwrap_err();
+            done_tx.send(error.kind()).unwrap();
+        });
+        ready_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+        cancellation.cancel();
+        assert_eq!(
+            done_rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            io::ErrorKind::ConnectionAborted
+        );
+        reader.join().unwrap();
+        drop(remote); // Remote remained open and silent throughout cancellation.
+    }
     use crate::tests::{accept, channels, listener, pair};
     use std::thread;
 
