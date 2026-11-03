@@ -26,6 +26,7 @@ pub enum InputEvent {
         horizontal: bool,
         delta: i32,
     },
+    EnterScreen,
     LeaveScreen,
 }
 
@@ -67,26 +68,14 @@ impl InputQueue {
         if self.poisoned {
             return Err(QueueError::ResetRequired);
         }
-        if let Some(last) = self.queue.back_mut() {
-            match (*last, event) {
-                (InputEvent::AbsoluteMove { .. }, InputEvent::AbsoluteMove { .. }) => {
-                    *last = event;
-                    return Ok(());
-                }
-                (
-                    InputEvent::RelativeMove {
-                        dx: old_x,
-                        dy: old_y,
-                    },
-                    InputEvent::RelativeMove { dx, dy },
-                ) => {
-                    if let (Some(dx), Some(dy)) = (old_x.checked_add(dx), old_y.checked_add(dy)) {
-                        *last = InputEvent::RelativeMove { dx, dy };
-                        return Ok(());
-                    }
-                }
-                _ => {}
-            }
+        // Raw relative counts cannot be summed safely: Windows pointer
+        // acceleration can make two deltas differ from one combined delta.
+        // Only consecutive absolute positions in the same screen epoch coalesce.
+        if let Some(last @ InputEvent::AbsoluteMove { .. }) = self.queue.back_mut()
+            && matches!(event, InputEvent::AbsoluteMove { .. })
+        {
+            *last = event;
+            return Ok(());
         }
         if self.queue.len() == self.capacity {
             self.poisoned = true;
@@ -140,7 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn relative_moves_preserve_displacement_and_do_not_saturate() {
+    fn relative_moves_preserve_individual_counts_and_do_not_saturate() {
         let mut queue = InputQueue::new(2).unwrap();
         queue
             .push(InputEvent::RelativeMove { dx: 2, dy: -3 })
@@ -150,7 +139,11 @@ mod tests {
             .unwrap();
         assert_eq!(
             queue.pop().unwrap(),
-            Some(InputEvent::RelativeMove { dx: 1, dy: 1 })
+            Some(InputEvent::RelativeMove { dx: 2, dy: -3 })
+        );
+        assert_eq!(
+            queue.pop().unwrap(),
+            Some(InputEvent::RelativeMove { dx: -1, dy: 4 })
         );
         queue
             .push(InputEvent::RelativeMove {
@@ -173,6 +166,21 @@ mod tests {
             queue.pop().unwrap(),
             Some(InputEvent::RelativeMove { dx: 1, dy: 0 })
         );
+    }
+
+    #[test]
+    fn screen_transitions_separate_absolute_move_epochs() {
+        let mut queue = InputQueue::new(3).unwrap();
+        for transition in [InputEvent::EnterScreen, InputEvent::LeaveScreen] {
+            let before = InputEvent::AbsoluteMove { x: -30_000, y: 0 };
+            let after = InputEvent::AbsoluteMove { x: 90_000, y: 0 };
+            queue.push(before).unwrap();
+            queue.push(transition).unwrap();
+            queue.push(after).unwrap();
+            assert_eq!(queue.pop().unwrap(), Some(before));
+            assert_eq!(queue.pop().unwrap(), Some(transition));
+            assert_eq!(queue.pop().unwrap(), Some(after));
+        }
     }
 
     #[test]
