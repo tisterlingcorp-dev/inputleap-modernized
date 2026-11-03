@@ -160,3 +160,26 @@ restart-style reconstruction, revoked tombstones, identity binding, failures,
 replacement/replay and malformed input. The Windows test does not restart a
 machine/service or inject input. Production LocalSystem bootstrap still needs
 atomic identity/registry lifecycle, authenticated UI pairing and service wiring.
+
+## Atomic pilot identity/registry lifecycle
+
+`inputleap-pilot::secure_state::PersistentSecurityState` combines the private
+identity and its identity-bound peer registry in one `ILSEC001` snapshot. The
+only active file for this lifecycle is `security-state.dpapi`, with a distinct
+DPAPI purpose. Every enrollment/replacement/revocation publishes one encrypted
+snapshot, avoiding split identity/peer-file commits. Temporary plaintext bundle
+buffers are zeroized and never implement IPC serialization or Debug disclosure.
+
+Explicit `create_new` refuses existing or corrupt state and historical separate
+records. Ordinary `open_existing` does not create a missing directory or identity,
+rejects mixed historical layouts and validates outer lengths, inner identity
+key/certificate consistency and registry binding before returning authority.
+There is no recovery by silently making a new key. Provisioning/migration must
+be an explicitly authorized service/installer action, not boot fallback.
+
+Four Windows tests cover stable public identity across reopen, startup without
+implicit creation, corruption/partial-record refusal, bounded malformed snapshot
+headers, and real loopback pairing/enrollment/revocation across DPAPI snapshot
+reconstruction. The tests use isolated current-account temporary directories.
+The SCM service still uses its diagnostic dispatcher: this lifecycle has not
+yet been wired to LocalSystem startup/provisioning or the Tauri pairing UI.

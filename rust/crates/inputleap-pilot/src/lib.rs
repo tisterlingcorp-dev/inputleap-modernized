@@ -9,6 +9,9 @@ use std::time::Duration;
 use inputleap_control::{Command, RuntimeState, SCHEMA_VERSION, StatusSnapshot};
 use serde::Serialize;
 
+#[cfg(windows)]
+pub mod secure_state;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum ServiceMode {
     Help,

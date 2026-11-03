@@ -21,6 +21,7 @@ const MAX_CIPHERTEXT: usize = MAX_PLAINTEXT + 64 * 1024;
 pub enum ProtectionPurpose {
     DeviceIdentity,
     PeerRegistry,
+    SecurityState,
 }
 
 impl ProtectionPurpose {
@@ -28,6 +29,7 @@ impl ProtectionPurpose {
         match self {
             Self::DeviceIdentity => b"InputLeap/Rust/DPAPI/DeviceIdentity/v1",
             Self::PeerRegistry => b"InputLeap/Rust/DPAPI/PeerRegistry/v1",
+            Self::SecurityState => b"InputLeap/Rust/DPAPI/SecurityState/v1",
         }
     }
 }

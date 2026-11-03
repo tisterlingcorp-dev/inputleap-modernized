@@ -41,6 +41,7 @@ const SECURITY_PARTS: u32 = OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATI
 pub enum RecordKind {
     Identity,
     Peers,
+    SecurityState,
 }
 
 impl RecordKind {
@@ -48,12 +49,14 @@ impl RecordKind {
         match self {
             Self::Identity => "identity.dpapi",
             Self::Peers => "peers.dpapi",
+            Self::SecurityState => "security-state.dpapi",
         }
     }
     fn purpose(&self) -> ProtectionPurpose {
         match self {
             Self::Identity => ProtectionPurpose::DeviceIdentity,
             Self::Peers => ProtectionPurpose::PeerRegistry,
+            Self::SecurityState => ProtectionPurpose::SecurityState,
         }
     }
 }
@@ -124,6 +127,14 @@ pub struct ProtectedStore {
 
 impl ProtectedStore {
     pub fn open(path: &Path) -> io::Result<Self> {
+        Self::open_inner(path, true)
+    }
+
+    pub fn open_existing(path: &Path) -> io::Result<Self> {
+        Self::open_inner(path, false)
+    }
+
+    fn open_inner(path: &Path, create: bool) -> io::Result<Self> {
         // Also rejects impersonation, without creating plaintext or files.
         let _ = protected_data::protect(ProtectionPurpose::PeerRegistry, b"store-access-check")?;
         if !path.is_absolute()
@@ -165,7 +176,7 @@ impl ProtectedStore {
         };
         let name = wide(path)?;
         // SAFETY: inputs owned for call; private ACL applied at creation, not later.
-        if unsafe { CreateDirectoryW(name.as_ptr(), &attributes) } == 0 {
+        if create && unsafe { CreateDirectoryW(name.as_ptr(), &attributes) } == 0 {
             let error = io::Error::last_os_error();
             if error.raw_os_error() != Some(ERROR_ALREADY_EXISTS as i32) {
                 return Err(error);
