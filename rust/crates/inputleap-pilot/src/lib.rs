@@ -19,6 +19,7 @@ pub enum ServiceMode {
     Query,
     ScmStatus,
     Scm,
+    ProvisionScm,
     Console { run_for: Duration },
 }
 
@@ -30,6 +31,7 @@ pub fn service_mode(args: impl IntoIterator<Item = String>) -> io::Result<Servic
         [flag] if flag == "--query" => Ok(ServiceMode::Query),
         [flag] if flag == "--scm-status" => Ok(ServiceMode::ScmStatus),
         [flag] if flag == "--service" => Ok(ServiceMode::Scm),
+        [flag] if flag == "--service-provision" => Ok(ServiceMode::ProvisionScm),
         [flag, duration, milliseconds] if flag == "--console" && duration == "--run-for-ms" => {
             let milliseconds: u64 = milliseconds.parse().map_err(|_| {
                 io::Error::new(io::ErrorKind::InvalidInput, "invalid console duration")
@@ -110,6 +112,18 @@ pub mod windows {
     use std::time::Instant;
 
     pub fn serve_system(stop: StopSignal) -> io::Result<()> {
+        let _security = super::secure_state::PersistentSecurityState::open_existing(
+            &inputleap_platform_windows::service::pilot_data_directory()?,
+        )?;
+        inputleap_platform_windows::service::mark_running()?;
+        serve(stop, true, None)
+    }
+
+    pub fn provision_system(stop: StopSignal) -> io::Result<()> {
+        let _security = super::secure_state::PersistentSecurityState::create_new(
+            &inputleap_platform_windows::service::pilot_data_directory()?,
+        )?;
+        inputleap_platform_windows::service::mark_running()?;
         serve(stop, true, None)
     }
 

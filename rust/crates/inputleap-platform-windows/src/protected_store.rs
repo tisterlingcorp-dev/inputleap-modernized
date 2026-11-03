@@ -149,7 +149,9 @@ impl ProtectedStore {
         }
         let sid = current_user_sid()?;
         let acl = if sid == "S-1-5-18" {
-            format!("O:{sid}D:P(A;OICI;FA;;;SY)")
+            // Administrators are trusted installers/recovery operators; DPAPI
+            // remains account-bound even when they can inspect ciphertext.
+            format!("O:{sid}D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)")
         } else {
             format!("O:{sid}D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;{sid})")
         };

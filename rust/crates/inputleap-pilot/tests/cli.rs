@@ -34,6 +34,21 @@ fn service_never_starts_or_installs_without_explicit_mode() {
 
 #[cfg(windows)]
 #[test]
+fn scm_modes_cannot_provision_from_an_ordinary_process() {
+    for mode in ["--service", "--service-provision"] {
+        let result = Command::new(env!("CARGO_BIN_EXE_input-leap-rust-service"))
+            .arg(mode)
+            .output()
+            .unwrap();
+        assert!(
+            !result.status.success(),
+            "SCM-only mode must not run standalone"
+        );
+    }
+}
+
+#[cfg(windows)]
+#[test]
 fn console_host_round_trips_verified_ipc_without_starting_input() {
     use inputleap_control::{
         Command as ControlCommand, PILOT_PIPE_NAME, Request, RuntimeState, SCHEMA_VERSION,

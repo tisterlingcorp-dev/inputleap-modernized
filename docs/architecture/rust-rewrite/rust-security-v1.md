@@ -109,8 +109,11 @@ service/UI. In particular DPAPI does not prevent rollback to an older valid blob
 ## Atomic Windows record store
 
 `protected_store::ProtectedStore` creates a single private directory with an
-explicit protected DACL and owner from the process token. Only that account and
-LocalSystem have full access. ACL/owner are checked against the generated exact
+explicit protected DACL and owner from the process token. Current-account stores
+grant full access only to that account and LocalSystem. LocalSystem-owned service
+stores grant full access to SYSTEM and trusted Administrators for installation/
+recovery; DPAPI still denies decryption under the administrator's own account.
+ACL/owner are checked against the generated exact
 descriptor on open/load/save; inherited or broader existing ACLs are rejected,
 never repaired. File handles reject reparse points and multiple hard links.
 The root remains non-delete-shared; a separate `writer.lock` excludes concurrent
@@ -181,5 +184,20 @@ Four Windows tests cover stable public identity across reopen, startup without
 implicit creation, corruption/partial-record refusal, bounded malformed snapshot
 headers, and real loopback pairing/enrollment/revocation across DPAPI snapshot
 reconstruction. The tests use isolated current-account temporary directories.
-The SCM service still uses its diagnostic dispatcher: this lifecycle has not
-yet been wired to LocalSystem startup/provisioning or the Tauri pairing UI.
+The SCM service retains a diagnostic command dispatcher and no productive input,
+but now loads this lifecycle as LocalSystem before reporting Running. Explicit
+SCM mode `--service-provision` creates a new state and refuses existing identity;
+ordinary `--service` opens existing state only. The path comes from the OS
+ProgramData known folder, never environment variables or IPC/CLI path input.
+Normal startup never provisions or regenerates a missing/corrupt snapshot.
+
+The native SCM smoke installs the separate Manual service in provision mode,
+checks authenticated IPC when an interactive session exists, changes its trusted
+SCM configuration to ordinary mode and restarts. The snapshot hash must remain
+unchanged; Running is published only after successful restore. It checks that
+the administrator cannot decrypt SYSTEM ciphertext with the exact purpose
+entropy, and a deliberately corrupt synthetic snapshot must stop startup with
+an error before Running. Only freshly created, hash-checked test state and exact
+known files are removed; pre-existing service/data/install directories cause
+refusal. This is not yet authenticated network pairing from Tauri or a Windows
+two-machine/reboot/suspend pilot. Such acceptance remains open.

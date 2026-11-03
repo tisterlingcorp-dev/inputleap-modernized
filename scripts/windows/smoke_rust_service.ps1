@@ -12,6 +12,12 @@ $installRoot = [IO.Path]::GetFullPath((Join-Path $programFiles 'InputLeapRustPil
 if ([IO.Path]::GetDirectoryName($installRoot) -ne [IO.Path]::GetFullPath($programFiles)) { throw 'Unexpected pilot installation target' }
 if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) { throw 'Pilot service already exists; refusing to replace it' }
 if (Test-Path -LiteralPath $installRoot) { throw 'Pilot installation directory already exists; refusing to overwrite it' }
+$programData = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)
+$dataRoot = [IO.Path]::GetFullPath((Join-Path $programData 'InputLeapRustPilot'))
+if ([IO.Path]::GetDirectoryName($dataRoot) -ne [IO.Path]::GetFullPath($programData)) { throw 'Unexpected pilot data target' }
+if (Test-Path -LiteralPath $dataRoot) { throw 'Pilot data directory already exists; refusing to touch an identity' }
+$snapshotPath = Join-Path $dataRoot 'security-state.dpapi'
+$snapshotHash = $null
 $files = @('input-leap-rust-service.exe', 'input-leap-rust-worker.exe')
 $sources = @{}
 foreach ($name in $files) {
@@ -21,7 +27,7 @@ foreach ($name in $files) {
         $sources[$name] = @{ Path = $item.FullName; Hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash }
     } else { throw "Invalid source executable: $name" }
 }
-$result = [ordered]@{ SchemaVersion=1; ScmLifecyclePassed=$false; InteractiveIpcExercised=$false; PayloadHashes=@{}; AutoStartEnabled=$false }
+$result = [ordered]@{ SchemaVersion=2; ScmLifecyclePassed=$false; InteractiveIpcExercised=$false; SecurityStateReloadPassed=$false; CrossAccountDecryptDenied=$false; CorruptStateStartupDenied=$false; PayloadHashes=@{}; AutoStartEnabled=$false }
 $createdService = $false
 $createdRoot = $false
 function Invoke-PilotControl([string]$Executable, [string]$Argument) {
@@ -72,7 +78,7 @@ try {
         $result.PayloadHashes[$name] = $hash
     }
     $executable = Join-Path $installRoot 'input-leap-rust-service.exe'
-    $registration = New-Service -Name $serviceName -DisplayName 'InputLeap Rust Pilot (SCM smoke)' -BinaryPathName ('"' + $executable + '" --service') -StartupType Manual
+    $registration = New-Service -Name $serviceName -DisplayName 'InputLeap Rust Pilot (SCM smoke)' -BinaryPathName ('"' + $executable + '" --service-provision') -StartupType Manual
     $registration.Dispose()
     $createdService = $true
     Start-Service -Name $serviceName
@@ -84,6 +90,22 @@ try {
     $verified = Invoke-PilotControl $executable '--scm-status'
     if ($verified.service_pid -ne $native.ProcessId -or $verified.account -ne 'LocalSystem') { throw 'Rust and Windows SCM identities disagree' }
     if ((Get-Process -Id $native.ProcessId).SessionId -ne 0) { throw 'Supervisor must run in Session 0' }
+    $dataItem = Get-Item -LiteralPath $dataRoot
+    if ($dataItem.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unexpected reparse point in pilot data' }
+    $dataAcl = Get-Acl -LiteralPath $dataRoot
+    if (!$dataAcl.AreAccessRulesProtected -or $dataAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne 'S-1-5-18') { throw 'Pilot data owner/DACL not protected by LocalSystem' }
+    $snapshotHash = (Get-FileHash -LiteralPath $snapshotPath -Algorithm SHA256).Hash
+    $ciphertext = [IO.File]::ReadAllBytes($snapshotPath)
+    if ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-18') {
+        Add-Type -AssemblyName System.Security
+        $entropy = [Text.Encoding]::UTF8.GetBytes('InputLeap/Rust/DPAPI/SecurityState/v1')
+        $unexpectedCleartext = $null
+        try {
+            $unexpectedCleartext = [Security.Cryptography.ProtectedData]::Unprotect($ciphertext, $entropy, [Security.Cryptography.DataProtectionScope]::CurrentUser)
+        } catch [Security.Cryptography.CryptographicException] { $result.CrossAccountDecryptDenied = $true }
+        if ($null -ne $unexpectedCleartext) { [Array]::Clear($unexpectedCleartext, 0, $unexpectedCleartext.Length); throw 'Administrator unexpectedly decrypted LocalSystem state' }
+        if (!$result.CrossAccountDecryptDenied) { throw 'Cross-account DPAPI denial was not demonstrated' }
+    }
     $session = (Get-Process -Id $PID).SessionId
     if ($session -ne 0) {
         $status = Invoke-PilotControl $executable '--query'
@@ -94,6 +116,28 @@ try {
     $service = Get-Service -Name $serviceName
     $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(10))
     $service.Dispose()
+    $change = Invoke-CimMethod -InputObject (Get-CimInstance Win32_Service -Filter "Name='InputLeapRustPilot'") -MethodName Change -Arguments @{ PathName=('"' + $executable + '" --service') }
+    if ($change.ReturnValue -ne 0) { throw 'Could not switch to ordinary existing-state startup' }
+    Start-Service -Name $serviceName
+    $service = Get-Service -Name $serviceName
+    $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(20))
+    $service.Dispose()
+    if ((Get-FileHash -LiteralPath $snapshotPath -Algorithm SHA256).Hash -ne $snapshotHash) { throw 'Ordinary startup rewrote the identity snapshot' }
+    $result.SecurityStateReloadPassed = $true
+    Stop-Service -Name $serviceName
+    $service = Get-Service -Name $serviceName
+    $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(10))
+    $service.Dispose()
+    [IO.File]::WriteAllBytes($snapshotPath, [Text.Encoding]::UTF8.GetBytes('synthetic corrupted SCM smoke state'))
+    try { Start-Service -Name $serviceName } catch { }
+    $service = Get-Service -Name $serviceName
+    $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(10))
+    $service.Dispose()
+    $failed = Get-CimInstance Win32_Service -Filter "Name='InputLeapRustPilot'"
+    if (!$failed.ExitCode -or $failed.State -ne 'Stopped') { throw 'Corrupt snapshot was not rejected before Running' }
+    $result.CorruptStateStartupDenied = $true
+    [IO.File]::WriteAllBytes($snapshotPath, $ciphertext)
+    if ((Get-FileHash -LiteralPath $snapshotPath -Algorithm SHA256).Hash -ne $snapshotHash) { throw 'Synthetic fixture restore failed' }
     $result.ScmLifecyclePassed = $true
 } finally {
     if ($createdService) {
@@ -115,6 +159,19 @@ try {
         }
         # Never recurse: unexpected files must remain rather than be deleted.
         Remove-Item -LiteralPath $installRoot
+    }
+    if ($snapshotHash -and (Test-Path -LiteralPath $dataRoot)) {
+        if ((Get-Item -LiteralPath $dataRoot).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Changed data directory retained for inspection' }
+        if ((Get-FileHash -LiteralPath $snapshotPath -Algorithm SHA256).Hash -ne $snapshotHash) { throw 'Changed synthetic state retained for inspection' }
+        Remove-Item -LiteralPath $snapshotPath
+        $lockPath = Join-Path $dataRoot 'writer.lock'
+        if (Test-Path -LiteralPath $lockPath) {
+            $lock = Get-Item -LiteralPath $lockPath
+            if ($lock.Length -ne 0 -or ($lock.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Unexpected writer lock retained' }
+            Remove-Item -LiteralPath $lockPath
+        }
+        # No recursive deletion: unexpected data remains for inspection.
+        Remove-Item -LiteralPath $dataRoot
     }
 }
 $output = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)

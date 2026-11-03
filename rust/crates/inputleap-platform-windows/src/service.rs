@@ -191,7 +191,6 @@ unsafe extern "system" fn service_main(_: u32, _: *mut windows_sys::core::PWSTR)
         }
         STATUS_HANDLE.store(handle as usize, Ordering::Release);
         publish(SERVICE_START_PENDING, false)?;
-        publish(SERVICE_RUNNING, false)?;
         let entry = ENTRY
             .get()
             .ok_or_else(|| io::Error::other("service entry missing"))?;
@@ -235,4 +234,40 @@ pub fn run_service(entry: ServiceEntry) -> io::Result<()> {
         return Err(io::Error::last_os_error());
     }
     Ok(())
+}
+
+/// Called by the trusted entry only after identity/store initialization passes.
+pub fn mark_running() -> io::Result<()> {
+    if STOP.get().is_some_and(StopSignal::is_stopped) {
+        return Err(io::Error::new(
+            io::ErrorKind::Interrupted,
+            "service stopped during initialization",
+        ));
+    }
+    publish(SERVICE_RUNNING, false)
+}
+
+/// OS known folder, not an environment variable or caller-controlled path.
+pub fn pilot_data_directory() -> io::Result<std::path::PathBuf> {
+    use std::os::windows::ffi::OsStringExt;
+    use windows_sys::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath};
+    let mut path = null_mut();
+    // SAFETY: fixed known-folder GUID; returned string is CoTaskMemFree-owned.
+    let status = unsafe { SHGetKnownFolderPath(&FOLDERID_ProgramData, 0, null_mut(), &mut path) };
+    if status < 0 {
+        return Err(io::Error::other("ProgramData known folder unavailable"));
+    }
+    if path.is_null() {
+        return Err(io::Error::other("ProgramData path missing"));
+    }
+    let result = unsafe {
+        let mut length = 0;
+        while *path.add(length) != 0 {
+            length += 1;
+        }
+        let value = std::ffi::OsString::from_wide(std::slice::from_raw_parts(path, length));
+        windows_sys::Win32::System::Com::CoTaskMemFree(path.cast());
+        std::path::PathBuf::from(value).join("InputLeapRustPilot")
+    };
+    Ok(result)
 }

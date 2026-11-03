@@ -7,7 +7,7 @@ use std::io;
 fn run() -> io::Result<()> {
     match service_mode(std::env::args().skip(1))? {
         ServiceMode::Help => println!(
-            "input-leap-rust-service --status | --query | --scm-status | --service | --console --run-for-ms 1..60000\nSeparate Rust pilot. Does not install itself or enable input."
+            "input-leap-rust-service --status | --query | --scm-status | --service | --service-provision | --console --run-for-ms 1..60000\nSeparate Rust pilot. Provisioning requires explicit LocalSystem SCM installation; does not enable input."
         ),
         ServiceMode::Status => println!(
             "{}",
@@ -24,6 +24,9 @@ fn run_platform(mode: ServiceMode) -> io::Result<()> {
         ServiceMode::Scm => {
             inputleap_platform_windows::service::run_service(inputleap_pilot::windows::serve_system)
         }
+        ServiceMode::ProvisionScm => inputleap_platform_windows::service::run_service(
+            inputleap_pilot::windows::provision_system,
+        ),
         ServiceMode::Console { run_for } => inputleap_pilot::windows::serve_console(run_for),
         ServiceMode::Query => {
             println!(
