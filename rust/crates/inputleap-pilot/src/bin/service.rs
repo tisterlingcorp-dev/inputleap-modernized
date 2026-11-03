@@ -7,7 +7,7 @@ use std::io;
 fn run() -> io::Result<()> {
     match service_mode(std::env::args().skip(1))? {
         ServiceMode::Help => println!(
-            "input-leap-rust-service --status | --query | --scm-status | --service | --service-provision | --console --run-for-ms 1..60000\nSeparate Rust pilot. Provisioning requires explicit LocalSystem SCM installation; does not enable input."
+            "input-leap-rust-service --status | --query | --revoke DEVICE_UUID | --scm-status | --service | --service-provision | --console --run-for-ms 1..60000\nSeparate Rust pilot. Provisioning requires explicit LocalSystem SCM installation; does not enable input."
         ),
         ServiceMode::Status => println!(
             "{}",
@@ -33,6 +33,18 @@ fn run_platform(mode: ServiceMode) -> io::Result<()> {
                 "{}",
                 serde_json::to_string(&inputleap_pilot::windows::query_installed_service()?)?
             );
+            Ok(())
+        }
+        ServiceMode::Revoke { device_id } => {
+            let response = inputleap_pilot::windows::command_installed_service(
+                inputleap_control::Command::Revoke { device_id },
+            )?;
+            println!("{}", serde_json::to_string(&response)?);
+            if response.status.error_code.is_some() {
+                return Err(io::Error::other(
+                    "revocation rejected; inspect public status",
+                ));
+            }
             Ok(())
         }
         ServiceMode::ScmStatus => {

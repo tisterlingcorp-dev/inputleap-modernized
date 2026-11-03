@@ -16,7 +16,29 @@ pub struct PeerRegistry {
     durability_fault: bool,
 }
 
+/// Public metadata only: no certificate private key or application authority.
+pub struct PeerDescription {
+    pub device: DeviceId,
+    pub fingerprint: [u8; 32],
+    pub capabilities: Capabilities,
+    pub revoked: bool,
+}
+
 impl PeerRegistry {
+    pub fn persistence_is_healthy(&self) -> bool {
+        !self.durability_fault
+    }
+    pub fn descriptions(&self) -> Vec<PeerDescription> {
+        self.peers
+            .iter()
+            .map(|peer| PeerDescription {
+                device: peer.identity().device(),
+                fingerprint: peer.identity().fingerprint(),
+                capabilities: peer.capabilities(),
+                revoked: peer.is_revoked(),
+            })
+            .collect()
+    }
     pub fn empty(local: &LocalIdentity) -> Self {
         Self {
             owner: owner(local),

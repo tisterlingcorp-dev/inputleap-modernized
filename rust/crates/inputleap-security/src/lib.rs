@@ -8,7 +8,7 @@ mod registry;
 mod transport;
 pub use identity::{LocalIdentity, PublicIdentity, SecretMaterial};
 pub use pairing::{PairedPeer, PendingPairing};
-pub use registry::PeerRegistry;
+pub use registry::{PeerDescription, PeerRegistry};
 pub use transport::{AuthenticatedChannel, ChannelKind, Operation, ReceivedFrame};
 
 #[cfg(test)]

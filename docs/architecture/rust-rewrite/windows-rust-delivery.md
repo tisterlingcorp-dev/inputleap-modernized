@@ -33,8 +33,8 @@ these gates is necessary, not proof of interactive or installer parity.
 
 ## Control contract and process isolation
 
-`inputleap-control` defines v1 local command framing, statuses and deterministic
-supervisor policies. Pilot pipe: `\\.\pipe\InputLeapRustPilot.v1`; input TCP 24900;
+`inputleap-control` defines v2 local command framing, statuses and deterministic
+supervisor policies. Pilot pipe: `\\.\pipe\InputLeapRustPilot.v2`; input TCP 24900;
 data TCP 24910. These are distinct from the operational C++ ports.
 
 The Windows platform pipe endpoint rejects remote pipe clients, uses a restrictive DACL,
@@ -60,14 +60,16 @@ never downgrade to development trust.
 
 `inputleap-pilot` builds `input-leap-rust-service` and `input-leap-rust-worker` as
 members of the root workspace, so all existing pilot gates include both binaries.
-The service has a native SCM entry point, STOP/SHUTDOWN handling and a read-only
-diagnostic dispatcher scoped to the active physical console's OS identity. It
+The service has a native SCM entry point, STOP/SHUTDOWN handling and an authenticated
+dispatcher scoped to the active physical console's OS identity. Status returns
+public identity/peer metadata and Revoke persists to its loaded atomic snapshot.
+Other productive runtime actions remain unavailable. It
 remains alive without a logged-on console user. Console-mode development hosts
 require an explicit bounded run duration and an interactive session. The worker
 is currently a diagnostic bootstrap: neither host claims productive input, file
 or clipboard capabilities. Standalone execution never starts input. Pairing and
 transfer commands report unavailable, and Start/Reconnect require pairing. Worker
-creation, productive authentication and UI integration remain subsequent work.
+creation, network-pairing command integration and UI integration remain subsequent work.
 
 `scripts/windows/smoke_rust_service.ps1` is an elevated development/CI test, not the
 product installer. It refuses existing service/directory collisions, temporarily

@@ -12,13 +12,13 @@ use std::io::{self, Read, Write};
 
 use serde::{Deserialize, Serialize};
 
-pub const SCHEMA_VERSION: u16 = 1;
+pub const SCHEMA_VERSION: u16 = 2;
 pub const MAX_CONTROL_FRAME: usize = 64 * 1024;
 /// Receipt byte after a complete validated response; permits safe pipe reuse.
 pub const STATUS_RECEIPT_ACK: u8 = 0xa5;
 pub const PILOT_INPUT_PORT: u16 = 24_900;
 pub const PILOT_DATA_PORT: u16 = 24_910;
-pub const PILOT_PIPE_NAME: &str = r"\\.\pipe\InputLeapRustPilot.v1";
+pub const PILOT_PIPE_NAME: &str = r"\\.\pipe\InputLeapRustPilot.v2";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -110,6 +110,26 @@ pub struct StatusSnapshot {
     pub last_processed_sequence: u64,
     /// Stable public code, never raw OS errors containing paths or content.
     pub error_code: Option<String>,
+    /// Public security metadata. Never identity secret material or clipboard.
+    pub security: Option<SecuritySnapshot>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecuritySnapshot {
+    pub persistence_healthy: bool,
+    pub device_id: String,
+    pub fingerprint: String,
+    pub peers: Vec<PeerSnapshot>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerSnapshot {
+    pub device_id: String,
+    pub fingerprint: String,
+    pub capabilities: u8,
+    pub revoked: bool,
 }
 
 /// Every response is correlated to the command on its authenticated pipe.
@@ -216,7 +236,10 @@ mod tests {
 
     #[test]
     fn unknown_fields_cannot_supply_an_identity() {
-        let json = br#"{"version":1,"request_id":1,"command":{"type":"start","session_id":1}}"#;
+        let json = format!(
+            r#"{{"version":{SCHEMA_VERSION},"request_id":1,"command":{{"type":"start","session_id":1}}}}"#
+        );
+        let json = json.as_bytes();
         let mut frame = (json.len() as u32).to_be_bytes().to_vec();
         frame.extend(json);
         assert!(read_request(&mut &frame[..]).is_err());
@@ -226,7 +249,7 @@ mod tests {
     fn invalid_requests_never_write_partial_frames() {
         for value in [
             Request {
-                version: 2,
+                version: SCHEMA_VERSION + 1,
                 ..request()
             },
             Request {
@@ -244,5 +267,21 @@ mod tests {
             assert!(write_request(&mut output, &value).is_err());
             assert!(output.is_empty());
         }
+    }
+
+    #[test]
+    fn previous_control_schema_cannot_silently_negotiate_down() {
+        let mut output = Vec::new();
+        assert!(
+            write_request(
+                &mut output,
+                &Request {
+                    version: 1,
+                    ..request()
+                }
+            )
+            .is_err()
+        );
+        assert!(output.is_empty());
     }
 }

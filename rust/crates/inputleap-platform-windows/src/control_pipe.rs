@@ -733,6 +733,7 @@ mod tests {
                     pending_input: 0,
                     last_processed_sequence: 0,
                     error_code: None,
+                    security: None,
                 })
                 .unwrap();
         });
@@ -839,6 +840,7 @@ mod tests {
                     pending_input: 0,
                     last_processed_sequence: 0,
                     error_code: None,
+                    security: None,
                 })
                 .unwrap();
         });

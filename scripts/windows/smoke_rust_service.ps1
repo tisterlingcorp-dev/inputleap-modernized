@@ -110,6 +110,8 @@ try {
     if ($session -ne 0) {
         $status = Invoke-PilotControl $executable '--query'
         if ($status.status.state -ne 'stopped' -or $status.status.error_code -ne 'authenticated_runtime_not_ready') { throw 'Unpaired service advertised an active runtime' }
+        $publicDevice = [guid]::Empty
+        if ($status.version -ne 2 -or $status.status.version -ne 2 -or !$status.status.security.persistence_healthy -or ![guid]::TryParse($status.status.security.device_id, [ref]$publicDevice) -or $status.status.security.fingerprint -notmatch '^[0-9a-f]{64}$' -or @($status.status.security.peers).Count -ne 0) { throw 'Verified IPC did not return bounded public identity metadata' }
         $result.InteractiveIpcExercised = $true
     }
     Stop-Service -Name $serviceName

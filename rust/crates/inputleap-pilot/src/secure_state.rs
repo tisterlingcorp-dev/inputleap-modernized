@@ -16,6 +16,49 @@ pub struct PersistentSecurityState {
 }
 
 impl PersistentSecurityState {
+    /// Must only run after OS pipe identity/session authorization and the
+    /// active-session recheck. No request field is an authentication credential.
+    pub fn dispatch_authorized(
+        &mut self,
+        command: &inputleap_control::Command,
+    ) -> inputleap_control::StatusSnapshot {
+        use inputleap_control::{Command, PeerSnapshot, RuntimeState, SecuritySnapshot};
+        let mut status = crate::dispatch_diagnostic(command);
+        if let Command::Revoke { device_id } = command {
+            status.state = RuntimeState::Stopped;
+            status.error_code = match DeviceId::parse(device_id) {
+                Err(_) => Some("invalid_device_id".into()),
+                Ok(device) => self
+                    .revoke(device)
+                    .err()
+                    .map(|_| "revocation_failed".into()),
+            };
+            if status.error_code.is_some() {
+                status.state = RuntimeState::Error;
+            }
+        }
+        status.security = Some(SecuritySnapshot {
+            persistence_healthy: self.registry.persistence_is_healthy(),
+            device_id: self.identity.public().device().to_string(),
+            fingerprint: fingerprint(self.identity.public().fingerprint()),
+            peers: self
+                .registry
+                .descriptions()
+                .into_iter()
+                .map(|peer| PeerSnapshot {
+                    device_id: peer.device.to_string(),
+                    fingerprint: fingerprint(peer.fingerprint),
+                    capabilities: peer.capabilities.bits(),
+                    revoked: peer.revoked,
+                })
+                .collect(),
+        });
+        if !self.registry.persistence_is_healthy() && !matches!(command, Command::Revoke { .. }) {
+            status.state = RuntimeState::Error;
+            status.error_code = Some("security_persistence_failed".into());
+        }
+        status
+    }
     /// Explicit provisioning only. Normal startup MUST use open_existing.
     /// Existing, corrupt or partial historical trust is never reset/adopted.
     pub fn create_new(path: &Path) -> io::Result<Self> {
@@ -128,6 +171,10 @@ impl PersistentSecurityState {
         } = self;
         registry.retry_persistence(|record| save_snapshot(store, identity, record))
     }
+}
+
+fn fingerprint(bytes: [u8; 32]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn invalid() -> io::Error {
@@ -328,6 +375,155 @@ mod tests {
                 .unwrap()
                 .expose_for_validation(),
             malformed
+        );
+    }
+
+    #[test]
+    fn verified_session_pipe_revoke_updates_live_authority_and_restart_state() {
+        use inputleap_control::{Command, Request, SCHEMA_VERSION};
+        use inputleap_platform_windows::control_pipe::{
+            ControlClient, ControlListener, ExpectedServer, current_interactive_session,
+        };
+        let identity = match current_interactive_session() {
+            Ok(identity) => identity,
+            Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+                assert!(
+                    ControlListener::bind(
+                        r"\\.\pipe\InputLeapRustPilot.SessionZeroRevokeDenied",
+                        "S-1-5-18",
+                        0
+                    )
+                    .is_err()
+                );
+                return;
+            }
+            Err(error) => panic!("cannot inspect test session: {error}"),
+        };
+        let fixture = Fixture::new();
+        let path = fixture.root();
+        let name = format!(
+            r"\\.\pipe\InputLeapRustPilot.RevokeTest-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let thread_name = name.clone();
+        let owner = identity.clone();
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let mut state = PersistentSecurityState::create_new(&path).unwrap();
+            let peer = pair(state.identity().clone());
+            let id = peer.identity().device();
+            state.enroll_confirmed(peer.clone()).unwrap();
+            let mut listener =
+                ControlListener::bind(&thread_name, &owner.user_sid, owner.session_id).unwrap();
+            ready_tx.send(id).unwrap();
+            for _ in 0..3 {
+                let request = listener.accept_request(Duration::from_secs(3)).unwrap();
+                assert_eq!(request.caller.user_sid, owner.user_sid);
+                assert_eq!(request.caller.session_id, owner.session_id);
+                let snapshot = state.dispatch_authorized(&request.request.command);
+                request.respond_status(&snapshot).unwrap();
+            }
+            assert!(peer.is_revoked());
+            drop(state);
+            let state = PersistentSecurityState::open_existing(&path).unwrap();
+            assert!(state.authorized_peer(id).is_err());
+        });
+        let id = ready_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let executable = std::env::current_exe().unwrap();
+        for (index, command) in [
+            Command::Status {},
+            Command::Revoke {
+                device_id: id.to_string(),
+            },
+            Command::Status {},
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let response = ControlClient::connect(
+                &name,
+                ExpectedServer::Process {
+                    executable: &executable,
+                    process_id: std::process::id(),
+                    session_id: identity.session_id,
+                    user_sid: &identity.user_sid,
+                },
+                Duration::from_secs(3),
+            )
+            .unwrap()
+            .status(&Request {
+                version: SCHEMA_VERSION,
+                request_id: index as u64 + 1,
+                command,
+            })
+            .unwrap();
+            let security = response.status.security.unwrap();
+            assert_eq!(security.fingerprint.len(), 64);
+            assert_eq!(security.peers.len(), 1);
+            assert_eq!(security.peers[0].device_id, id.to_string());
+            assert_eq!(security.peers[0].revoked, index > 0);
+        }
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn revoke_command_reports_stable_errors_without_claiming_success() {
+        let fixture = Fixture::new();
+        let mut state = PersistentSecurityState::create_new(&fixture.root()).unwrap();
+        let status = state.dispatch_authorized(&inputleap_control::Command::Revoke {
+            device_id: "not-a-uuid".into(),
+        });
+        assert_eq!(status.state, inputleap_control::RuntimeState::Error);
+        assert_eq!(status.error_code.as_deref(), Some("invalid_device_id"));
+        let unknown = LocalIdentity::generate().unwrap().public().device();
+        let status = state.dispatch_authorized(&inputleap_control::Command::Revoke {
+            device_id: unknown.to_string(),
+        });
+        assert_eq!(status.state, inputleap_control::RuntimeState::Error);
+        assert_eq!(status.error_code.as_deref(), Some("revocation_failed"));
+    }
+
+    #[test]
+    fn failed_revocation_remains_visible_to_status_until_retry_commits() {
+        use inputleap_control::{Command, RuntimeState};
+        use std::os::windows::fs::OpenOptionsExt;
+        let fixture = Fixture::new();
+        let mut state = PersistentSecurityState::create_new(&fixture.root()).unwrap();
+        let peer = pair(state.identity().clone());
+        let id = peer.identity().device();
+        state.enroll_confirmed(peer.clone()).unwrap();
+        let hold = std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(fixture.root().join("security-state.dpapi"))
+            .unwrap();
+        let command = Command::Revoke {
+            device_id: id.to_string(),
+        };
+        let status = state.dispatch_authorized(&command);
+        assert_eq!(status.error_code.as_deref(), Some("revocation_failed"));
+        assert!(peer.is_revoked());
+        assert!(!status.security.unwrap().persistence_healthy);
+        let status = state.dispatch_authorized(&Command::Status {});
+        assert_eq!(status.state, RuntimeState::Error);
+        assert_eq!(
+            status.error_code.as_deref(),
+            Some("security_persistence_failed")
+        );
+        drop(hold);
+        let status = state.dispatch_authorized(&command);
+        assert!(status.error_code.is_none());
+        assert!(status.security.unwrap().persistence_healthy);
+        drop(state);
+        assert!(
+            PersistentSecurityState::open_existing(&fixture.root())
+                .unwrap()
+                .authorized_peer(id)
+                .is_err()
         );
     }
 }

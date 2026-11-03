@@ -127,9 +127,9 @@ removes only its exact staging file left by an interrupted attempt. It does not
 publish an uncommitted staging record. A failed rename preserves the old record.
 
 The caller must supply a fixed path under a trusted parent, not a UI/network
-path; the module does not secure arbitrary ancestor directories. Production
-LocalSystem provisioning, schema validation of peer records, durable revocation
-and service integration remain separate work. Five Windows filesystem tests
+path; the module does not secure arbitrary ancestor directories. Peer schemas
+and LocalSystem lifecycle are integrated in the layers described below, not
+provided by this low-level file API alone. Five Windows filesystem tests
 cover private create/replace/reopen/exclusive writer, rejection of an inherited
 directory without changing its marker, corrupt-record no-reset, failed rename
 with subsequent staging recovery, and hard-link rejection. No user configuration
@@ -161,8 +161,8 @@ numbers do not protect against an administrator restoring an older valid blob.
 Six registry tests and a Windows loopback/DPAPI/filesystem integration test cover
 restart-style reconstruction, revoked tombstones, identity binding, failures,
 replacement/replay and malformed input. The Windows test does not restart a
-machine/service or inject input. Production LocalSystem bootstrap still needs
-atomic identity/registry lifecycle, authenticated UI pairing and service wiring.
+machine/service or inject input. Atomic lifecycle and LocalSystem bootstrap are
+described below; authenticated UI pairing remains open.
 
 ## Atomic pilot identity/registry lifecycle
 
@@ -184,7 +184,7 @@ Four Windows tests cover stable public identity across reopen, startup without
 implicit creation, corruption/partial-record refusal, bounded malformed snapshot
 headers, and real loopback pairing/enrollment/revocation across DPAPI snapshot
 reconstruction. The tests use isolated current-account temporary directories.
-The SCM service retains a diagnostic command dispatcher and no productive input,
+The SCM service has no productive input,
 but now loads this lifecycle as LocalSystem before reporting Running. Explicit
 SCM mode `--service-provision` creates a new state and refuses existing identity;
 ordinary `--service` opens existing state only. The path comes from the OS
@@ -201,3 +201,33 @@ an error before Running. Only freshly created, hash-checked test state and exact
 known files are removed; pre-existing service/data/install directories cause
 refusal. This is not yet authenticated network pairing from Tauri or a Windows
 two-machine/reboot/suspend pilot. Such acceptance remains open.
+
+## Authenticated status and revocation IPC v2
+
+The loaded LocalSystem snapshot now backs Revoke in the service dispatcher,
+after pipe caller authentication and the active Windows session recheck. A
+successful response follows the atomic persisted revocation, not merely a UI
+request. Invalid IDs and failed revocations return stable public error codes.
+Status contains device/peer UUIDs, SHA-256 public-certificate fingerprints,
+capability bits and revoked flags; no private keys, DER secret records or clipboard.
+It also exposes persistence health. After a failed revocation write, later Status
+and runtime commands remain in Error/security_persistence_failed, rather than
+hiding the unresolved durability fault behind a normal stopped diagnostic state.
+Retrying the same authenticated Revoke can commit and clear the fault. A Windows
+test deliberately blocks rename, observes the error across subsequent Status,
+then releases the handle and proves persisted denial after retry/reopen.
+Registry metadata does not issue connection authority.
+
+The control schema and endpoint move together to version 2 / pipe
+`\\.\pipe\InputLeapRustPilot.v2`; version 1 requests are rejected, not downgraded.
+The Rust client helper `command_installed_service` checks the same pinned SCM
+identity before sending. CLI `--revoke DEVICE_UUID` uses that helper and exits
+with failure when the public response reports an error. It does not install or
+provision a service and takes no secret on the command line.
+
+A real current-session named-pipe test runs confirmed loopback pairing, persists
+the grant, authenticates client/server identities, queries metadata, revokes,
+queries the revoked flag and reopens the snapshot to confirm denial. Session 0
+tests assert that an interactive endpoint cannot bind there; they do not claim
+that interactive IPC was exercised. Unknown/malformed IDs and old-schema requests
+also fail closed. Network pairing commands and the Tauri consent UI remain open.

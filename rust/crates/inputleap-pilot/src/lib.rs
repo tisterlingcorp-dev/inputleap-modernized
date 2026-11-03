@@ -20,6 +20,7 @@ pub enum ServiceMode {
     ScmStatus,
     Scm,
     ProvisionScm,
+    Revoke { device_id: String },
     Console { run_for: Duration },
 }
 
@@ -32,6 +33,13 @@ pub fn service_mode(args: impl IntoIterator<Item = String>) -> io::Result<Servic
         [flag] if flag == "--scm-status" => Ok(ServiceMode::ScmStatus),
         [flag] if flag == "--service" => Ok(ServiceMode::Scm),
         [flag] if flag == "--service-provision" => Ok(ServiceMode::ProvisionScm),
+        [flag, device_id] if flag == "--revoke" => {
+            inputleap_types::DeviceId::parse(device_id)
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid device ID"))?;
+            Ok(ServiceMode::Revoke {
+                device_id: device_id.clone(),
+            })
+        }
         [flag, duration, milliseconds] if flag == "--console" && duration == "--run-for-ms" => {
             let milliseconds: u64 = milliseconds.parse().map_err(|_| {
                 io::Error::new(io::ErrorKind::InvalidInput, "invalid console duration")
@@ -74,6 +82,7 @@ pub fn diagnostic_status(component: &'static str, session: Option<u32>) -> HostS
             pending_input: 0,
             last_processed_sequence: 0,
             error_code: Some("authenticated_runtime_not_ready".into()),
+            security: None,
         },
         input_available: false,
         clipboard_available: false,
@@ -112,27 +121,32 @@ pub mod windows {
     use std::time::Instant;
 
     pub fn serve_system(stop: StopSignal) -> io::Result<()> {
-        let _security = super::secure_state::PersistentSecurityState::open_existing(
+        let mut security = super::secure_state::PersistentSecurityState::open_existing(
             &inputleap_platform_windows::service::pilot_data_directory()?,
         )?;
         inputleap_platform_windows::service::mark_running()?;
-        serve(stop, true, None)
+        serve(stop, true, None, Some(&mut security))
     }
 
     pub fn provision_system(stop: StopSignal) -> io::Result<()> {
-        let _security = super::secure_state::PersistentSecurityState::create_new(
+        let mut security = super::secure_state::PersistentSecurityState::create_new(
             &inputleap_platform_windows::service::pilot_data_directory()?,
         )?;
         inputleap_platform_windows::service::mark_running()?;
-        serve(stop, true, None)
+        serve(stop, true, None, Some(&mut security))
     }
 
     pub fn serve_console(run_for: Duration) -> io::Result<()> {
         current_interactive_session()?;
-        serve(StopSignal::default(), false, Some(run_for))
+        serve(StopSignal::default(), false, Some(run_for), None)
     }
 
-    fn serve(stop: StopSignal, system: bool, run_for: Option<Duration>) -> io::Result<()> {
+    fn serve(
+        stop: StopSignal,
+        system: bool,
+        run_for: Option<Duration>,
+        mut security: Option<&mut super::secure_state::PersistentSecurityState>,
+    ) -> io::Result<()> {
         let start = Instant::now();
         let mut endpoint = None;
         while !stop.is_stopped() && run_for.is_none_or(|limit| start.elapsed() < limit) {
@@ -177,7 +191,10 @@ pub mod windows {
                     if current.as_ref() != Some(&identity) {
                         continue;
                     }
-                    let status = dispatch_diagnostic(&request.request.command);
+                    let status = match security.as_deref_mut() {
+                        Some(security) => security.dispatch_authorized(&request.request.command),
+                        None => dispatch_diagnostic(&request.request.command),
+                    };
                     if let Err(error) = request.respond_status(&status) {
                         // A disconnected UI does not take down the service.
                         if !matches!(
@@ -208,6 +225,12 @@ pub mod windows {
     }
 
     pub fn query_installed_service() -> io::Result<inputleap_control::StatusResponse> {
+        command_installed_service(Command::Status {})
+    }
+
+    pub fn command_installed_service(
+        command: Command,
+    ) -> io::Result<inputleap_control::StatusResponse> {
         let executable = std::env::current_exe()?.with_file_name("input-leap-rust-service.exe");
         ControlClient::connect(
             PILOT_PIPE_NAME,
@@ -219,7 +242,7 @@ pub mod windows {
         .status(&Request {
             version: SCHEMA_VERSION,
             request_id: 1,
-            command: Command::Status {},
+            command,
         })
     }
 }
