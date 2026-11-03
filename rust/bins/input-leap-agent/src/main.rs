@@ -369,8 +369,13 @@ fn run(_config: &Config) -> Result<(), String> {
 
 fn main() {
     if env::args().any(|arg| arg == "--status") {
+        let status = if cfg!(windows) {
+            "UNSUPPORTED_WINDOWS_INPUT"
+        } else {
+            "EXPERIMENTAL_X11"
+        };
         println!(
-            r#"{{"agent":"input-leap-agent-r3-bootstrap","version":"0.1.0-dev-r3","status":"READY","pid":null}}"#
+            r#"{{"agent":"input-leap-agent-experimental","version":"0.1.0","status":"{status}","pid":null}}"#
         );
         return;
     }

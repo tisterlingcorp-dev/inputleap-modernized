@@ -1,5 +1,8 @@
 use inputleap_protocol_legacy::RemoteMessage;
 
+#[cfg(windows)]
+pub mod control_pipe;
+
 /// Platform input injection failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InputError {

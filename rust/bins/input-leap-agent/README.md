@@ -1,6 +1,6 @@
 # input-leap-agent
 
-> Bootstrap inicial do agente Rust (R3 — shell read-only)
+> Agente experimental legado X11; não é o worker Windows do piloto Rust.
 
 Escopo desta fase:
 
@@ -8,13 +8,14 @@ Escopo desta fase:
 - expor status básico para o shell Tauri;
 - manter estado em memória e sem efeitos de entrada/saída do SO ainda.
 
-Implementação atual (placeholder de bootstrap):
+Estado verificado em 2026-11-03:
 
-- CLI sem argumentos: entra em loop de heartbeat e loga snapshots de status.
-- `--status`: imprime snapshot atual e sai.
+- O caminho Unix implementa conexão TLS e eventos X11; exige argumentos de conexão e identidade.
+- O caminho Windows retorna erro de plataforma não suportada.
+- `--status` descreve disponibilidade experimental, não uma conexão de controle pronta.
 
 Observações:
 
-- não controla entrada/saída real de teclado/mouse ainda;
+- não controla entrada/saída Windows em produção;
 - não substitui daemon C++.
 - depende das decisões de IPC da Task 9 do plano Rust/Tauri.

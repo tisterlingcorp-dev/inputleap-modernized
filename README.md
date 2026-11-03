@@ -9,6 +9,13 @@ Tauri application version: `0.1.3`
 
 ## Current status
 
+The approved target is now a Windows Rust core, supervisor and interactive worker
+with the existing Tauri UI, delivered first as an isolated pilot. Implementation
+and acceptance are tracked in [Windows Rust delivery](docs/architecture/rust-rewrite/windows-rust-delivery.md).
+The current operational build is still hybrid; the Rust migration is not complete
+and the new control-contract crate does not itself provide a service or runtime.
+Do not remove or replace the working C++ installation before pilot acceptance.
+
 The migration is intentionally hybrid:
 
 ```text

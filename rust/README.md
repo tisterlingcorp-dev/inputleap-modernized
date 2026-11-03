@@ -1,12 +1,25 @@
-# Input Leap Rust workspace (R1)
+# Input Leap Rust workspace
 
-This directory contains the minimal Rust workspace foundation introduced in R1.
+This directory contains the Rust migration libraries, including the Windows pilot
+control contract and supervisor policy. See [Windows delivery](../docs/architecture/rust-rewrite/windows-rust-delivery.md)
+for the approved Rust-only target and remaining acceptance work.
 
-The existing C++ application remains the Input Leap runtime. This tranche does not replace that runtime, provide a Rust runtime, add Tauri integration, or claim feature/protocol parity with the C++ implementation.
+The C++ application remains the operational runtime. Existing Rust TLS/protocol/
+transfer primitives and Windows input backend are partial; no production parity
+or complete Windows worker/service is claimed. Tauri, agent and server are separate
+Cargo workspaces and must be tested explicitly.
 
 Current workspace membership is intentionally limited to crates under `crates/*`.
 Crates inherit the `GPL-2.0-only` base identifier; the repository `LICENSE`
 remains authoritative for the additional OpenSSL permission.
+
+## Windows pilot gate
+
+From the repository root, run `./scripts/windows/gate_rust_pilot.ps1` in PowerShell.
+It validates locked metadata, formatting, Clippy, tests, Release builds and
+dependency policy for the root, agent, server and Tauri manifests. The matching
+`Rust Windows pilot` workflow does not publish or install anything. The optional
+`-SkipDependencyAudit` is local-only and never emits the full release-gate marker.
 
 ## Local gates
 

@@ -1,0 +1,33 @@
+name: Rust Windows pilot
+
+on:
+  push:
+    branches: ['codex/rust-windows-pilot']
+  pull_request:
+    paths:
+      - 'rust/**'
+      - 'scripts/windows/gate_rust_pilot.ps1'
+      - '.github/workflows/rust-pilot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-pilot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.97.0'
+          components: rustfmt, clippy
+      - name: Install pinned dependency policy tool
+        run: cargo install cargo-deny --version 0.20.2 --locked
+      - name: Validate all Windows Rust manifests
+        shell: pwsh
+        run: ./scripts/windows/gate_rust_pilot.ps1
