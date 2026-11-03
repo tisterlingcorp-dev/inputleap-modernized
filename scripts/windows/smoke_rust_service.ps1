@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$BinaryDirectory,
-    [Parameter(Mandatory = $true)][string]$OutputPath
+    [Parameter(Mandatory = $true)][string]$OutputPath,
+    [ValidateRange(0, 60)][int]$UiObservationSeconds = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -120,6 +121,7 @@ try {
         $stopped = Invoke-PilotControl $executable '--stop-pilot'
         if ($stopped.status.state -ne 'stopped' -or $stopped.status.security.pairing) { throw 'Stop did not cancel/hide the pending pairing' }
         $result.PairingWindowIpcExercised = $true
+        if ($UiObservationSeconds -gt 0) { Start-Sleep -Seconds $UiObservationSeconds }
     }
     Stop-Service -Name $serviceName
     $service = Get-Service -Name $serviceName

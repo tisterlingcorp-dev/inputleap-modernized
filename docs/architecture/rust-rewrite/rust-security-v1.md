@@ -272,3 +272,46 @@ native smoke additionally opens a loopback-only untrusted pairing window, proves
 Status remains responsive without a network peer, and cancels it through IPC.
 Synthetic tests do not replace human/UI testing on two Windows machines. Tauri
 consent integration, productive input/data channels and full pilot remain open.
+
+## Isolated Tauri consent surface
+
+The Tauri binary has explicit `--rust-pilot` mode with identifier
+`io.input-leap.rust-pilot` and `pilot.html` as its initial page. This mode skips
+legacy migration/autostart, routes only pilot commands and never dispatches
+legacy runtime actions. Ordinary operational mode remains unchanged during the
+pilot. The bridge checks the exact main-window local origin/path and an action
+allowlist, then performs blocking named-pipe IO off the WebView thread. Expected
+service executable comes from the OS ProgramFiles known folder, not the UI,
+working directory or environment. SCM PID/file/session checks remain mandatory.
+Only the control/platform client libraries are dependencies of the UI; identity
+key generation, peer authority and private records remain service-side.
+
+Rights start unchecked. Approval requires explicit comparison of every code group,
+peer fingerprint and negotiated rights. Changing attempt/code/peer/rights or
+losing the service clears consent and hides stale codes. Polling never confirms
+automatically and is single-flight/paused when hidden. Browser-only opening shows
+an error, never a demo connection. Text uses textContent, with no peer HTML eval.
+Six dependency-free Node DOM tests are included in the Windows gate in addition
+to bridge origin/allowlist tests. These do not replace a real two-machine human
+consent test. The actual Windows Tauri page has been visually inspected read-only;
+no security/consent settings were clicked by computer automation. R03 still needs
+end-to-end validation of pairing from both graphical windows; R04–R12 remain open.
+
+An in-memory revoked peer is labeled as blocked with persistence pending while
+the registry reports a write fault, never as a completed durable revocation. The
+sixth DOM test verifies that distinction. Windows GUI inspection uses a copied
+candidate binary, not a live Cargo build output, to avoid Windows executable-file
+locks during release validation. An optional bounded native-smoke observation
+window allows read-only graphical status checks without granting a real peer.
+
+Real unelevated UI validation found that SYSTEM's process DACL denied both limited
+query and synchronization; an elevated smoke alone had hidden this difference.
+The service now grants the active OS-derived user SID exactly
+PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE on its OWN process, preserving full
+SYSTEM/Administrators control. It replaces/removes that observer on active-user
+change/logoff. No VM_READ, VM_WRITE, duplicate-token/handle or termination right
+is granted; named-pipe caller/session/logon authorization remains independent.
+An unelevated CLI query and the actual Tauri page then received the same public
+device identity. Native probes separately confirmed the query/sync handle succeeds
+while VM_READ and TERMINATE handles fail with access denied. This is not proof
+against a trusted administrator or a replacement for session-transition pilot tests.

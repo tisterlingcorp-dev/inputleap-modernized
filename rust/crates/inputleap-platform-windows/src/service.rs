@@ -249,11 +249,90 @@ pub fn mark_running() -> io::Result<()> {
 
 /// OS known folder, not an environment variable or caller-controlled path.
 pub fn pilot_data_directory() -> io::Result<std::path::PathBuf> {
+    known_pilot_directory(&windows_sys::Win32::UI::Shell::FOLDERID_ProgramData)
+}
+
+pub fn pilot_install_directory() -> io::Result<std::path::PathBuf> {
+    known_pilot_directory(&windows_sys::Win32::UI::Shell::FOLDERID_ProgramFiles)
+}
+
+/// Permit only the current authorized user's read-only image/lifetime checks.
+/// No VM_READ/VM_WRITE, token duplication, process creation or termination.
+/// Replaces the previous observer when the active user changes. The pipe's
+/// independent SID/session/logon authorization still gates every command.
+pub fn configure_service_observer(owner_sid: Option<&str>) -> io::Result<()> {
+    use windows_sys::Win32::{
+        Foundation::LocalFree,
+        Security::{
+            Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW,
+            DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
+            SetKernelObjectSecurity,
+        },
+        System::Threading::GetCurrentProcess,
+    };
+    if super::control_pipe::current_user_sid()? != "S-1-5-18" {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "only service may configure its observer",
+        ));
+    }
+    let text = observer_descriptor(owner_sid)?;
+    let text = wide(&text);
+    let mut descriptor = null_mut();
+    // SAFETY: generated SDDL contains only validated OS SID and fixed masks.
+    if unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            text.as_ptr(),
+            1,
+            &mut descriptor,
+            null_mut(),
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: only this process's DACL is changed; descriptor remains live.
+    let result = unsafe {
+        SetKernelObjectSecurity(
+            GetCurrentProcess(),
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            descriptor,
+        )
+    };
+    let error = io::Error::last_os_error();
+    unsafe { LocalFree(descriptor) };
+    if result == 0 {
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn observer_descriptor(owner_sid: Option<&str>) -> io::Result<String> {
+    let mut text = "D:P(A;;GA;;;SY)(A;;GA;;;BA)".to_string();
+    if let Some(sid) = owner_sid {
+        if !sid.starts_with("S-1-")
+            || sid.len() > 184
+            || !sid
+                .bytes()
+                .all(|b| b == b'S' || b == b'-' || b.is_ascii_digit())
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid observer SID",
+            ));
+        }
+        // PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE only.
+        text.push_str(&format!("(A;;0x00101000;;;{sid})"));
+    }
+    Ok(text)
+}
+
+fn known_pilot_directory(folder: &windows_sys::core::GUID) -> io::Result<std::path::PathBuf> {
     use std::os::windows::ffi::OsStringExt;
-    use windows_sys::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath};
+    use windows_sys::Win32::UI::Shell::SHGetKnownFolderPath;
     let mut path = null_mut();
     // SAFETY: fixed known-folder GUID; returned string is CoTaskMemFree-owned.
-    let status = unsafe { SHGetKnownFolderPath(&FOLDERID_ProgramData, 0, null_mut(), &mut path) };
+    let status = unsafe { SHGetKnownFolderPath(folder, 0, null_mut(), &mut path) };
     if status < 0 {
         return Err(io::Error::other("ProgramData known folder unavailable"));
     }
@@ -270,4 +349,22 @@ pub fn pilot_data_directory() -> io::Result<std::path::PathBuf> {
         std::path::PathBuf::from(value).join("InputLeapRustPilot")
     };
     Ok(result)
+}
+
+#[cfg(test)]
+mod observer_tests {
+    use super::*;
+    #[test]
+    fn observer_grants_only_fixed_read_only_rights_to_a_validated_sid() {
+        assert!(
+            observer_descriptor(Some("S-1-5-21-1-2-3-1001"))
+                .unwrap()
+                .ends_with("(A;;0x00101000;;;S-1-5-21-1-2-3-1001)")
+        );
+        assert_eq!(
+            observer_descriptor(None).unwrap(),
+            "D:P(A;;GA;;;SY)(A;;GA;;;BA)"
+        );
+        assert!(observer_descriptor(Some("S-1-5-21)(A;;GA;;;WD)")).is_err());
+    }
 }

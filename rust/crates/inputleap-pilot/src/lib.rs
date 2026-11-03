@@ -203,6 +203,9 @@ pub mod windows {
                 pairing.poll(identity.as_ref(), security);
             }
             let Some(identity) = identity else {
+                if system && endpoint.is_some() {
+                    inputleap_platform_windows::service::configure_service_observer(None)?;
+                }
                 endpoint = None;
                 std::thread::sleep(Duration::from_millis(200));
                 continue;
@@ -212,6 +215,11 @@ pub mod windows {
                 .is_none_or(|(owner, _)| owner != &identity)
             {
                 drop(endpoint.take());
+                if system {
+                    inputleap_platform_windows::service::configure_service_observer(Some(
+                        &identity.user_sid,
+                    ))?;
+                }
                 endpoint = Some((
                     identity.clone(),
                     ControlListener::bind(
@@ -337,7 +345,8 @@ pub mod windows {
     pub fn command_installed_service(
         command: Command,
     ) -> io::Result<inputleap_control::StatusResponse> {
-        let executable = std::env::current_exe()?.with_file_name("input-leap-rust-service.exe");
+        let executable = inputleap_platform_windows::service::pilot_install_directory()?
+            .join("input-leap-rust-service.exe");
         ControlClient::connect(
             PILOT_PIPE_NAME,
             ExpectedServer::WindowsService {

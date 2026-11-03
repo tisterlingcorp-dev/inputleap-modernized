@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'">
+<title>InputLeap — Piloto Rust</title><link rel="stylesheet" href="pilot.css"><script defer src="pilot.js"></script></head>
+<body><main><header><p class="eyebrow">PILOTO ISOLADO · WINDOWS</p><h1>Pareamento seguro</h1><p>Não altera o compartilhamento atual. Teclado, mouse e transferências Rust ainda estão indisponíveis.</p></header>
+<section><h2>Este dispositivo</h2><p id="connection" role="status" aria-live="polite">Consultando serviço piloto…</p><dl><dt>Identidade</dt><dd id="device">—</dd><dt>Fingerprint pública</dt><dd id="fingerprint">—</dd></dl><button id="refresh">Atualizar</button></section>
+<section><h2>Conectar com outro Windows</h2><p>Os dois dispositivos devem abrir o piloto e confirmar o mesmo código completo. Descoberta não autoriza acesso.</p><label for="address">IP LAN ou Tailscale e porta</label><input id="address" placeholder="192.168.0.118:24920" maxlength="255" autocomplete="off">
+<fieldset><legend>Direitos que você autoriza nesta tentativa</legend><label><input type="checkbox" id="input-right"> Teclado e mouse</label><label><input type="checkbox" id="clipboard-right"> Texto e imagens</label><label><input type="checkbox" id="files-right"> Arquivos</label></fieldset>
+<div class="actions"><button id="listen">Aguardar conexão por 60 s</button><button id="connect">Conectar</button><button id="stop">Cancelar tentativa</button></div>
+<p id="message" role="alert"></p></section>
+<section id="pending" hidden><h2>Confirme pessoalmente nas duas telas</h2><p id="phase"></p><p>Dispositivo remoto: <span id="peer-id"></span></p><p class="mono" id="peer-fingerprint"></p><p>Código completo para comparar:</p><strong id="code" class="code"></strong><p id="rights"></p>
+<label><input type="checkbox" id="compared"> Comparei todos os grupos nas duas telas e reconheço o dispositivo e os direitos acima.</label><div class="actions"><button id="approve" disabled>Os códigos são iguais</button><button id="reject">Recusar</button></div></section>
+<section><h2>Dispositivos pareados</h2><p>Revogar encerra a autorização. Falha de gravação não será apresentada como revogação concluída.</p><ul id="peers"></ul></section>
+<footer>Fechar esta janela não encerra o serviço. Não há conexão automática com o runtime C++.</footer></main></body></html>

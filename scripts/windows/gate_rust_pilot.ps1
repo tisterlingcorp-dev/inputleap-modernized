@@ -42,6 +42,9 @@ try {
             if ($LASTEXITCODE -ne 0) { throw "Dependency policy failed for $manifest" }
         }
     }
+    if (!(Get-Command node -ErrorAction SilentlyContinue)) { throw 'Node.js required for pilot UI consent tests' }
+    & node --test rust/apps/input-leap/tests/pilot-ui.test.cjs
+    if ($LASTEXITCODE -ne 0) { throw 'Pilot UI consent tests failed' }
     if ($SkipDependencyAudit) {
         Write-Warning 'RUST_PILOT_LOCAL_CHECKS_PASS_WITHOUT_AUDIT: not a release gate.'
     } else {

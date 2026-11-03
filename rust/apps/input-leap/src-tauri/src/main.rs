@@ -18,6 +18,8 @@ use tauri::{
     Manager,
 };
 
+mod pilot_ui;
+
 #[derive(Debug, Serialize)]
 struct StatusSnapshot {
     status: String,
@@ -2037,8 +2039,18 @@ fn show_main_window(app: &tauri::AppHandle) {
     }
 }
 
-fn install_system_tray(app: &mut tauri::App) -> tauri::Result<()> {
-    let show = MenuItem::with_id(app, "show", "Abrir Input Leap", true, None::<&str>)?;
+fn install_system_tray(app: &mut tauri::App, pilot: bool) -> tauri::Result<()> {
+    let show = MenuItem::with_id(
+        app,
+        "show",
+        if pilot {
+            "Abrir piloto Rust"
+        } else {
+            "Abrir Input Leap"
+        },
+        true,
+        None::<&str>,
+    )?;
     let quit = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &quit])?;
     let icon = tauri::image::Image::new(include_bytes!("../icons/input-leap.rgba"), 32, 32);
@@ -2046,7 +2058,11 @@ fn install_system_tray(app: &mut tauri::App) -> tauri::Result<()> {
     TrayIconBuilder::with_id("input-leap")
         .icon(icon)
         .menu(&menu)
-        .tooltip("Input Leap")
+        .tooltip(if pilot {
+            "InputLeap — Piloto Rust"
+        } else {
+            "Input Leap"
+        })
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => show_main_window(app),
             "quit" => app.exit(0),
@@ -2116,15 +2132,33 @@ fn install_user_autostart() -> Result<(), String> {
 }
 
 fn main() {
+    let pilot_mode = env::args().any(|argument| argument == "--rust-pilot");
+    let mut context = tauri::generate_context!();
+    if pilot_mode {
+        context.config_mut().identifier = "io.input-leap.rust-pilot".into();
+        for window in &mut context.config_mut().app.windows {
+            if window.label == "main" {
+                window.url = tauri::WebviewUrl::App("pilot.html".into());
+                window.title = "InputLeap — Piloto Rust".into();
+            }
+        }
+    }
     println!("[input-leap-tauri] starting hybrid Rust/Tauri shell");
 
     tauri::Builder::default()
-        .setup(|app| {
+        .setup(move |app| {
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_title("Input Leap");
+                let _ = window.set_title(if pilot_mode {
+                    "InputLeap — Piloto Rust"
+                } else {
+                    "Input Leap"
+                });
             }
-            install_system_tray(app)?;
+            install_system_tray(app, pilot_mode)?;
             show_main_window(app.handle());
+            if pilot_mode {
+                return Ok(());
+            }
             if env::args().any(|argument| argument == "--take-control") {
                 if let Err(error) = start_managed_runtime() {
                     eprintln!("[input-leap-tauri] managed runtime migration failed: {error}");
@@ -2141,19 +2175,30 @@ fn main() {
                 let _ = window.hide();
             }
         })
-        .invoke_handler(tauri::generate_handler![
-            get_status,
-            subscribe_status,
-            get_sanitized_logs,
-            get_runtime_topology,
-            get_runtime_status,
-            start_managed_runtime,
-            stop_managed_runtime,
-            reload_runtime,
-            apply_topology,
-            open_device_transfer_center,
-        ])
-        .run(tauri::generate_context!())
+        .invoke_handler({
+            type Handler = Box<dyn Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync>;
+            let pilot: Handler = Box::new(tauri::generate_handler![pilot_ui::pilot_command]);
+            let legacy: Handler = Box::new(tauri::generate_handler![
+                get_status,
+                subscribe_status,
+                get_sanitized_logs,
+                get_runtime_topology,
+                get_runtime_status,
+                start_managed_runtime,
+                stop_managed_runtime,
+                reload_runtime,
+                apply_topology,
+                open_device_transfer_center,
+            ]);
+            move |invoke| {
+                if pilot_mode {
+                    pilot(invoke)
+                } else {
+                    legacy(invoke)
+                }
+            }
+        })
+        .run(context)
         .expect("error while running tauri application");
 
     println!("[input-leap-tauri] exited");
@@ -3030,9 +3075,9 @@ ESTAB 0 0 192.0.2.121:24800 192.0.2.175:32828 users:((\"input-leaps\",pid=59644,
         let start_handler = ["            start_managed", "_runtime,"].concat();
         let stop_handler = ["            stop_managed", "_runtime,"].concat();
         let topology_handler = ["            save_runtime", "_topology"].concat();
-        assert!(source.contains(
-            "get_runtime_topology,\n            get_runtime_status,\n            start_managed_runtime,\n            stop_managed_runtime,\n            reload_runtime,"
-        ));
+        assert!(source.contains("get_runtime_topology,"));
+        let normalized = source.lines().map(str::trim).collect::<Vec<_>>().join("\n");
+        assert!(normalized.contains("get_runtime_topology,\nget_runtime_status,\nstart_managed_runtime,\nstop_managed_runtime,\nreload_runtime,"));
         assert!(source.contains(&start_handler));
         assert!(source.contains(&stop_handler));
         assert!(!source.contains(&topology_handler));
