@@ -341,8 +341,10 @@ version = "0.1.0"
 dependencies = [
  "inputleap-control",
  "inputleap-protocol-legacy",
+ "inputleap-security",
  "serde_json",
  "windows-sys 0.59.0",
+ "zeroize",
 ]
 
 [[package]]

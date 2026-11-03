@@ -304,6 +304,7 @@ dependencies = [
  "inputleap-protocol-legacy",
  "serde_json",
  "windows-sys 0.59.0",
+ "zeroize",
 ]
 
 [[package]]

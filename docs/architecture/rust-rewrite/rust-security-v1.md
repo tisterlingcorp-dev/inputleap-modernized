@@ -87,3 +87,21 @@ operator decisions and separate authenticated loopback sockets. Cases include:
 
 No test captures or injects desktop input, reads the user's clipboard, writes a
 credential store, installs a runtime or creates a real pairing on either laptop.
+
+## Windows DPAPI boundary
+
+`inputleap-platform-windows::protected_data` provides bounded current-account
+DPAPI protection with UI forbidden and no `LOCAL_MACHINE` or plaintext fallback.
+Identity and peer-registry records use distinct stable purpose entropy; this is
+domain separation, not a secret/password. Decrypted buffers and Win32 output
+allocations are zeroized; Debug never exposes plaintext. Threads impersonating
+an IPC caller are rejected before either operation. Production use belongs in
+the dedicated service after reverting to its own identity.
+
+Five Windows tests cover randomized ciphertext/round trip, purpose confusion,
+tampering/plaintext rejection, empty/oversized records, actual device-identity
+restoration and rejection during thread impersonation. Tests use the test
+process account; LocalSystem lifecycle integration and cross-account denial
+are not established by these tests. This is not yet an ACL-protected atomic
+filesystem store or a durable revocation registry, and is not wired into the
+service/UI. In particular DPAPI does not prevent rollback to an older valid blob.
