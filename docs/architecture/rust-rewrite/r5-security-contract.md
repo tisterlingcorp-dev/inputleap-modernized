@@ -1,6 +1,6 @@
 # R5 — contrato de segurança Rust
 
-Status: TLS/mTLS, autenticação de controle, anti-replay e persistência da associação certificado ↔ `DeviceId` validados localmente; a integração produtiva do peer Rust e a validação E2E ficam registradas como trabalho posterior, pois esta entrega será transferida para validação em Linux e não dispõe de duas máquinas Windows.
+Status: contrato histórico dos adaptadores experimentais. Não é prova de segurança do runtime produtivo. O alvo vigente é Windows 10/11 x64; a biblioteca separada `inputleap-security` e seus testes atuais estão descritos em [Rust security v1](rust-security-v1.md). Persistência DPAPI/ACL, revogação durável, integração ao serviço/UI e piloto nas duas máquinas ainda precisam de aceite; R03 não está concluído.
 
 ## Objetivos
 

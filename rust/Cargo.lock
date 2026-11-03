@@ -374,6 +374,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "inputleap-security"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "getrandom 0.2.17",
+ "inputleap-types",
+ "rcgen",
+ "rustls",
+ "rustls-pki-types",
+ "rustls-webpki",
+ "sha2 0.11.0",
+ "time",
+ "zeroize",
+]
+
+[[package]]
 name = "inputleap-transfer"
 version = "0.1.0"
 dependencies = [

@@ -22,7 +22,7 @@ choice alone.
 | Rust server | mTLS socket and polling Windows capture | Pair-bound productive session and event capture |
 | Windows backend | SendInput, primary display and basic keys/buttons | Extended keys, wheel, DPI, virtual desktop, hooks, release state |
 | Transfer | Queue of complete buffers, maximum 16 MiB | Consent, streaming, resume, secure atomic publication |
-| Security | Rust mTLS and control-auth primitives with unit tests | Exporter/channel/role binding, Windows protected persistence, UI pairing |
+| Security | Separate tested Rust pilot identity, bilateral pairing and exporter/channel/role binding | Windows protected persistence, durable revocation, service/UI pairing integration |
 | Recovery | Existing operational external scripts | Rust supervisor and worker-progress acknowledgements |
 | Packaging | Hybrid package and historical CI evidence | Independent Rust installer and Windows 10/11 lifecycle |
 

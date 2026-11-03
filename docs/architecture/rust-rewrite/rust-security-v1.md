@@ -1,0 +1,89 @@
+# Rust pilot security v1
+
+Status: implemented as a separate library, with real loopback tests. Not yet
+connected to the Windows service/UI or durable protected storage. R03 remains
+in progress; these tests do not prove the complete product or worker input path.
+
+## Identity and storage boundary
+
+`inputleap-security` uses per-device UUIDs, Ed25519 signatures and a self-signed
+certificate with a logical `<device-id>.inputleap.invalid` SAN, digital-signature
+usage and server/client EKUs. Generated certificates last one year; expired and
+future-dated leaf certificates are rejected by TLS. Names identify devices, not
+OS accounts, public DNS or network discovery addresses.
+
+Public identity parsing verifies bounded DER, logical SAN and Ed25519 SPKI. It
+does not confer trust. Private restore verifies the key matches the certificate.
+Secret buffers are zeroized on drop and have redacted Debug implementations.
+`SecretMaterial` is a private-record buffer prepared **for** OS protection; it is
+not encrypted by itself. No plaintext file-storage helper exists. Durable Windows
+DPAPI/ACL storage, peer-record integrity and revocation after reboot are still
+required. Do not route this material through Tauri, logs or process arguments.
+
+## Pairing is not application authorization
+
+The caller must open a temporary pairing window through an authenticated local
+operator action; the library does not start a listener automatically. A bounded
+public-certificate preface is followed by TLS 1.3 with mutual certificate possession
+and validity checks. Provisional roots exist only for this pairing session and
+never grant input/clipboard/files. No custom accept-all certificate verifier or
+public web root store is used.
+
+Each side signs an offer bound to its peer, connection role, requested permissions,
+fresh OS nonce and TLS exporter. Both views compute the same 96-bit comparison
+code from the full transcript. The operators must compare all six hexadecimal
+groups on their own screens. Both signed confirmations must match the transcript
+and approve only a subset of proposed permissions; no authority is returned after
+one rejection, invalid signature or a 60-second confirmation expiry.
+
+The pairing object exposes no application-frame API. After confirmation the
+pairing connection closes. Production input/data require a fresh mutually trusted
+TLS connection using the resulting peer authority. Persistent stores must reject
+identity/key substitutions rather than silently overwrite an existing device.
+Pairing-window rate limits, human UI actions and durable commit are integration
+work, not properties inferred from the library API.
+
+## Authorized sessions and revocation
+
+Input and data are separate TLS 1.3 connections. Every session requires a signed
+hello binding sender, recipient, connector/listener role, channel, permissions,
+fresh nonce and the current TLS exporter. Permissions are intersected; unknown
+bits, wrong identity/role/channel and another TLS session's signature fail closed.
+
+Application frames carry bounded length, operation and monotonic u64 sequence.
+Input cannot be delivered on the data socket, clipboard/files cannot be delivered
+on the input socket, and permissions are checked before payload allocation and
+after reception. Invalid frames close the connection. Idle timeout before a frame
+is distinct from a timeout after the first frame byte, which is fatal.
+
+Cloned peer authorities share in-memory revocation state. Revocation blocks new
+sessions/operations and shuts down registered sockets. Windows may not wake an
+already blocked read after shutdown on a duplicated socket; cancellable reads
+therefore bound individual OS waits to 50 ms while preserving the overall deadline.
+Tests hold the opposite endpoint open when verifying revocation, so EOF cannot
+mistakenly satisfy the test. Worker queue barriers and release of pressed keys
+are R04/R05 integration work; durable revocation is still R03 work.
+
+Limits: certificate DER 16 KiB, private key DER 4 KiB, public preface bounded before
+allocation, signed authorization hello 139 bytes, input payload 4 KiB, data payload
+320 KiB and eight live application sessions per peer. Underlying TLS IO enforces
+absolute deadlines between OS reads/writes so slow byte streams cannot reset a
+handshake budget indefinitely. The service must additionally bound concurrent
+unauthenticated handshakes and pairing attempts.
+
+## Executed evidence
+
+The library test suite exercises real certificates, provisional pairing, signed
+operator decisions and separate authenticated loopback sockets. Cases include:
+
+- missing one/both operator approvals; narrowing permissions; fresh comparison codes;
+- correct Unicode bytes over an authorized data socket (not Windows clipboard parity);
+- substituted certificate/key/device, expired/future certificates, missing client
+  certificate and TLS 1.2 rejection;
+- actual-session exporter replay, identity/role/channel substitution and signature tamper;
+- duplicate application sequence, remote oversized frames and cross-channel operations;
+- stalled/dripping prefices, idle versus partial-frame timeout, live revocation;
+- private-record validation/redaction without claiming DPAPI encryption.
+
+No test captures or injects desktop input, reads the user's clipboard, writes a
+credential store, installs a runtime or creates a real pairing on either laptop.
