@@ -9,6 +9,9 @@ pub mod service;
 #[cfg(windows)]
 pub mod protected_data;
 
+#[cfg(windows)]
+pub mod protected_store;
+
 /// Platform input injection failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InputError {

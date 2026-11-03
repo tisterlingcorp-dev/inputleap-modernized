@@ -105,3 +105,29 @@ process account; LocalSystem lifecycle integration and cross-account denial
 are not established by these tests. This is not yet an ACL-protected atomic
 filesystem store or a durable revocation registry, and is not wired into the
 service/UI. In particular DPAPI does not prevent rollback to an older valid blob.
+
+## Atomic Windows record store
+
+`protected_store::ProtectedStore` creates a single private directory with an
+explicit protected DACL and owner from the process token. Only that account and
+LocalSystem have full access. ACL/owner are checked against the generated exact
+descriptor on open/load/save; inherited or broader existing ACLs are rejected,
+never repaired. File handles reject reparse points and multiple hard links.
+The root remains non-delete-shared; a separate `writer.lock` excludes concurrent
+writers without blocking Win32 child-file rename operations.
+
+The only record names are `identity.dpapi` and `peers.dpapi`. Writes use a fixed
+private staging file, `sync_all`, then same-directory MoveFileEx with replacement
+and write-through. Existing destination data must decrypt before replacement;
+corrupt records never become a silent identity reset. A later save validates and
+removes only its exact staging file left by an interrupted attempt. It does not
+publish an uncommitted staging record. A failed rename preserves the old record.
+
+The caller must supply a fixed path under a trusted parent, not a UI/network
+path; the module does not secure arbitrary ancestor directories. Production
+LocalSystem provisioning, schema validation of peer records, durable revocation
+and service integration remain separate work. Five Windows filesystem tests
+cover private create/replace/reopen/exclusive writer, rejection of an inherited
+directory without changing its marker, corrupt-record no-reset, failed rename
+with subsequent staging recovery, and hard-link rejection. No user configuration
+or production credential directory is opened by these tests.
